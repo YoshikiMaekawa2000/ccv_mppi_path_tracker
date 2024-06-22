@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<launch>
+    <include file="$(find sq2_ccv_description)/launch/gazebo.launch"/>
+
+    <node name="ccv_mppi_path_tracker" pkg="ccv_mppi_path_tracker" type="ccv_mppi_path_tracker" output="screen">
+    <!-- <param name="mppi_path_tracker_config" textfile="$(find ccv_mppi_path_tracker)/config/diff_drive_mppi_path_tracker.yaml"/> --> 
+    </node>
+    <node name="reference_path_creater" pkg="ccv_mppi_path_tracker" type="reference_path_creater" output="screen">
+    </node>
+
+</launch>
