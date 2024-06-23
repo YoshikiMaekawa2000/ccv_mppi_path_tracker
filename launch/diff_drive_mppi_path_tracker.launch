@@ -9,4 +9,6 @@
     <node name="reference_path_creater" pkg="ccv_mppi_path_tracker" type="reference_path_creater" output="screen">
     </node>
 
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/config.rviz" output="screen"/>
+
 </launch>
