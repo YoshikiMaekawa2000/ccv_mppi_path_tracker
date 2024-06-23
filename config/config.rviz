@@ -6,7 +6,9 @@ Panels:
       Expanded:
         - /Global Options1
         - /Odometry1/Shape1
-        - /Path2
+        - /Path3
+        - /MarkerArray1
+        - /MarkerArray1/Namespaces1
       Splitter Ratio: 0.5
     Tree Height: 651
   - Class: rviz/Selection
@@ -69,14 +71,14 @@ Visualization Manager:
           Scale: 1
           Value: true
         Value: false
-      Enabled: true
-      Keep: 1
+      Enabled: false
+      Keep: 100000
       Name: Odometry
       Position Tolerance: 0.10000000149011612
       Queue Size: 10
       Shape:
         Alpha: 1
-        Axes Length: 0.5
+        Axes Length: 0.10000000149011612
         Axes Radius: 0.10000000149011612
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
@@ -86,7 +88,7 @@ Visualization Manager:
         Value: Axes
       Topic: /sq2_ccv/diff_drive_steering_controller/odom
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
@@ -135,6 +137,38 @@ Visualization Manager:
       Topic: /ccv_mppi_path_tracker/ref_path
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Buffer Length: 1
+      Class: rviz/Path
+      Color: 25; 255; 0
+      Enabled: true
+      Head Diameter: 0.10000000149011612
+      Head Length: 0.10000000149011612
+      Length: 0.30000001192092896
+      Line Style: Lines
+      Line Width: 0.029999999329447746
+      Name: Path
+      Offset:
+        X: 0
+        Y: 0
+        Z: 0
+      Pose Color: 255; 25; 0
+      Pose Style: Arrows
+      Queue Size: 10
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.009999999776482582
+      Topic: /ccv_mppi_path_tracker/optimal_path
+      Unreliable: false
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /ccv_mppi_path_tracker/candidate_path
+      Name: MarkerArray
+      Namespaces:
+        candidate_path: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -163,7 +197,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 5.481410980224609
+      Distance: 12.084869384765625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -171,17 +205,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 6.222721099853516
-        Y: 0.5130187273025513
-        Z: 3.43843150138855
+        X: 4.620513916015625
+        Y: 0.18362289667129517
+        Z: 0.6837608218193054
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8997969627380371
+      Pitch: 1.4897961616516113
       Target Frame: <Fixed Frame>
-      Yaw: 4.768585681915283
+      Yaw: 3.133582830429077
     Saved: ~
 Window Geometry:
   Displays:

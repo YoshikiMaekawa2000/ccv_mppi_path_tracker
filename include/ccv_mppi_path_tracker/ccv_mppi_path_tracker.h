@@ -21,35 +21,30 @@ public:
     void run();
 private:
     ros::NodeHandle nh_;
-
-    // publishers and subscribers
+    // publishers 
     ros::Publisher cmd_vel_pub_;
     geometry_msgs::Twist cmd_vel_;
-
+    // subscribers
     ros::Subscriber path_sub_;
     ros::Subscriber joint_state_sub_;
     nav_msgs::Path path_;
     sensor_msgs::JointState joint_state_;
-
     // confirmations
     ros::Publisher ref_path_pub_;
     ros::Publisher candidate_path_pub_;
     ros::Publisher optimal_path_pub_;
     ros::Publisher path_pub_;
-
     nav_msgs::Path ref_path_;
     visualization_msgs::MarkerArray candidate_path_marker_;
-    visualization_msgs::Marker optimal_path_marker_;
+    nav_msgs::Path optimal_path_;
     visualization_msgs::Marker path_marker_;
-
-
+    // tf
     tf::TransformListener listener_;
     tf::StampedTransform transform_;
     geometry_msgs::TransformStamped transform_msg_;
-
+    // poses
     geometry_msgs::PoseStamped current_pose_;
     geometry_msgs::PoseStamped previous_pose_;
-
 
     // MPPI parameters
     int horizon_;
@@ -101,7 +96,11 @@ private:
     double calculate_Cost(DiffDrive sample);
     void determine_OptimalSolution();
     void publish_CmdVel();
+
+    // confirmations
     void publish_Path();
     void publish_RefPath();
+    void publish_OptimalPath();
+    void publish_CandidatePath();
 
 };

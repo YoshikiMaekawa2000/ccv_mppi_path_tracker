@@ -10,7 +10,7 @@ CCVMPPIPathTracker::CCVMPPIPathTracker()
     // confirmations
     ref_path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
     candidate_path_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/ccv_mppi_path_tracker/candidate_path", 1);
-    optimal_path_pub_ = nh_.advertise<visualization_msgs::Marker>("/ccv_mppi_path_tracker/optimal_path", 1);
+    optimal_path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/optimal_path", 1);
     path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/path", 1);
 
     // subscribers
@@ -18,9 +18,9 @@ CCVMPPIPathTracker::CCVMPPIPathTracker()
     joint_state_sub_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &CCVMPPIPathTracker::jointState_Callback, this);
 
     nh_.param("dt", dt_, 0.1);
-    nh_.param("horizon", horizon_, 10);
-    nh_.param("num_samples", num_samples_, 100.0);
-    nh_.param("control_noise", control_noise_, 0.1);
+    nh_.param("horizon", horizon_, 15);
+    nh_.param("num_samples", num_samples_, 1000.0);
+    nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
     nh_.param("v_max", v_max_, 1.0);
     nh_.param("w_max", w_max_, 1.0);
@@ -138,6 +138,37 @@ void CCVMPPIPathTracker::publish_CmdVel()
     cmd_vel_pub_.publish(cmd_vel_);
 }
 
+void CCVMPPIPathTracker::publish_CandidatePath()
+{
+    candidate_path_marker_.markers.resize(num_samples_);
+    for (int i = 0; i < num_samples_; i++)
+    {
+        candidate_path_marker_.markers[i].header.frame_id = WORLD_FRAME;
+        candidate_path_marker_.markers[i].header.stamp = ros::Time::now();
+        candidate_path_marker_.markers[i].ns = "candidate_path";
+        candidate_path_marker_.markers[i].id = i;
+        candidate_path_marker_.markers[i].type = visualization_msgs::Marker::LINE_STRIP;
+        candidate_path_marker_.markers[i].action = visualization_msgs::Marker::ADD;
+        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;
+        candidate_path_marker_.markers[i].scale.x = 0.05;
+        candidate_path_marker_.markers[i].color.a = 1.0;
+        candidate_path_marker_.markers[i].color.r = 0.0;
+        candidate_path_marker_.markers[i].color.g = 1.0;
+        candidate_path_marker_.markers[i].color.b = 0.0;
+        candidate_path_marker_.markers[i].lifetime = ros::Duration();
+        candidate_path_marker_.markers[i].points.resize(horizon_);
+        for (int t = 0; t < horizon_; t++)
+        {
+            geometry_msgs::Point p;
+            p.x = sample[i].x_[t];
+            p.y = sample[i].y_[t];
+            p.z = 0.0;
+            candidate_path_marker_.markers[i].points[t] = p;
+        }
+    }
+    candidate_path_pub_.publish(candidate_path_marker_);
+}
+
 void CCVMPPIPathTracker::predict_States()
 {
     for (int i = 0; i < num_samples_; i++)
@@ -156,9 +187,8 @@ void CCVMPPIPathTracker::predict_States()
             sample[i].yaw_[t + 1] = sample[i].yaw_[t] + sample[i].w_[t] * dt_;
         }
     }
-    // test
-    // std::cout << "===Predicted states===" << std::endl;
-
+    // Publish candidate path
+    publish_CandidatePath();
 }
 
 int CCVMPPIPathTracker::get_CurrentIndex()
@@ -257,6 +287,19 @@ void CCVMPPIPathTracker::calculate_Weights()
     }
 }
 
+void CCVMPPIPathTracker::publish_OptimalPath()
+{
+    optimal_path_.header.frame_id = WORLD_FRAME;
+    optimal_path_.header.stamp = ros::Time::now();
+    optimal_path_.poses.resize(horizon_);
+    for(int i=0; i<horizon_; i++)
+    {
+        optimal_path_.poses[i].pose.position.x = sample[0].x_[i];
+        optimal_path_.poses[i].pose.position.y = sample[0].y_[i];
+        optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(sample[0].yaw_[i]);
+    }
+    optimal_path_pub_.publish(optimal_path_);
+}
 void CCVMPPIPathTracker::determine_OptimalSolution()
 {
     // Determine optimal solution
@@ -270,13 +313,7 @@ void CCVMPPIPathTracker::determine_OptimalSolution()
             optimal_solution.w_[t] += weights_[i] * sample[i].w_[t];
         }
     }
-    // test
-    // std::cout << "===Optimal solution===" << std::endl;
-    // for(int t=0; t<horizon_; t++)
-    // {
-    //     std::cout << "v: " << optimal_solution.v_[t] << std::endl;
-    //     std::cout << "w: " << optimal_solution.w_[t] << std::endl;
-    // }
+    publish_OptimalPath();
 }
 
 void CCVMPPIPathTracker::run()
@@ -319,7 +356,6 @@ void CCVMPPIPathTracker::run()
         loop_rate.sleep();
     }
 }
-
 
 int main(int argc, char **argv)
 {
