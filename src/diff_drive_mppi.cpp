@@ -1,5 +1,5 @@
 
-#include "ccv_mppi_path_tracker/ccv_mppi_path_tracker.h"
+#include "ccv_mppi_path_tracker/diff_drive_mppi.h"
 // #include "ccv_mppi_path_tracker/diff_drive.h"
 
 CCVMPPIPathTracker::CCVMPPIPathTracker()
@@ -136,6 +136,8 @@ void CCVMPPIPathTracker::publish_CmdVel()
     cmd_vel_.linear.x = optimal_solution.v_[0];
     cmd_vel_.angular.z = optimal_solution.w_[0];
     cmd_vel_pub_.publish(cmd_vel_);
+    std::cout << "v: " << cmd_vel_.linear.x << std::endl;
+    std::cout << "v_ref: " << v_ref_ << std::endl;
 }
 
 void CCVMPPIPathTracker::publish_CandidatePath()
@@ -231,7 +233,6 @@ void CCVMPPIPathTracker::calculate_RefPath()
     for(int i=0; i<horizon_; i++)
     {
         int index = current_index_ + i * step;
-        std::cout << "index: " << index << std::endl;
         if(index < path_.poses.size())
         {
             reference_x_[i] = path_.poses[index].pose.position.x;
@@ -314,6 +315,7 @@ void CCVMPPIPathTracker::determine_OptimalSolution()
         }
     }
     publish_OptimalPath();
+    
 }
 
 void CCVMPPIPathTracker::run()

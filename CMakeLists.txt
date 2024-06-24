@@ -28,13 +28,13 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS}
 )
 link_directories(/opt/ros/noetic/lib)
-add_executable(ccv_mppi_path_tracker src/ccv_mppi_path_tracker.cpp)
+add_executable(diff_drive_mppi src/diff_drive_mppi.cpp)
 add_executable(reference_path_creater src/reference_path_creater.cpp)
-add_dependencies(ccv_mppi_path_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(diff_drive_mppi ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(reference_path_creater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
-target_link_libraries(ccv_mppi_path_tracker
+target_link_libraries(diff_drive_mppi
   ${catkin_LIBRARIES}
   roscpp
 )
