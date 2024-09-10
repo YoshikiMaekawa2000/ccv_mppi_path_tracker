@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node name="steering_diff_drive_mppi" pkg="ccv_mppi_path_tracker" type="steering_diff_drive_mppi" output="screen">
+    <!-- <param name="mppi_path_tracker_config" textfile="$(find ccv_mppi_path_tracker)/config/diff_drive_mppi_path_tracker.yaml"/> -->
+    <param name="v_ref" value="1.2"/>
+    <param name="v_max" value="1.2"/>
+    <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
+    </node>
+    <node name="reference_path_creater" pkg="ccv_mppi_path_tracker" type="reference_path_creater" output="screen">
+    <param name="world_frame_id" value="odom"/>
+    <param name="A1" value="0.5"/>
+    <param name="omega1" value="1"/>
+    <remap from="/reference_path_creater/path" to="/reference_path"/>
+    </node>
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/config.rviz" output="screen"/>
+
+
+    <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/>
+</launch>

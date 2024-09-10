@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<launch>
+
+    <node name="reference_path_creater" pkg="ccv_mppi_path_tracker" type="reference_path_creater" output="screen">
+    <param name="world_frame_id" value="odom"/>
+    <param name="A1" value="1"/>
+    <param name="omega1" value="1"/>
+    <remap from="/reference_path_creater/path" to="/reference_path"/>
+    </node>
+
+    <node name="pure_pursuit_steering" pkg="ccv_pure_pursuit_steering" type="ccv_pure_pursuit_steering" output="screen">
+        <param name="max_target_velocity" value="1.2"/>
+        <!-- <param name="max_steering_angle" value="00.0"/> -->
+        <param name="max_steering_angle" value="30.0"/>
+        <param name="hz" value="50"/>
+        <param name="L1" value="1.0"/>
+        <param name="L2" value="0.2"/>
+        <param name="goal_border" value="0.5"/>
+        <param name="read_marker" value="false"/>
+        <param name="world_frame_id" value="odom"/>
+        <param name="robot_frame_id" value="base_link"/>
+        <remap from="/predicted_path" to="/reference_path"/>
+        <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
+    </node>
+
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/pure_pursuit.rviz" output="screen"/>
+    <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find steering_path_planner)/config/debug_trj_test.rviz"/> -->
+
+
+
+    <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/>
+</launch>

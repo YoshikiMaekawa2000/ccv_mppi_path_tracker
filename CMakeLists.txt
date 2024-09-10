@@ -8,6 +8,7 @@ project(ccv_mppi_path_tracker)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  ccv_dynamixel_msgs
   geometry_msgs
   roscpp
   sensor_msgs
@@ -29,16 +30,24 @@ include_directories(
 )
 link_directories(/opt/ros/noetic/lib)
 add_executable(diff_drive_mppi src/diff_drive_mppi.cpp)
+add_executable(steering_diff_drive_mppi src/steering_diff_drive_mppi.cpp)
 add_executable(reference_path_creater src/reference_path_creater.cpp)
+add_executable(dkan_path_creater src/dkan_path_creater.cpp)
 add_dependencies(diff_drive_mppi ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(reference_path_creater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(dkan_path_creater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 
 
 target_link_libraries(diff_drive_mppi
   ${catkin_LIBRARIES}
-  roscpp
+)
+target_link_libraries(steering_diff_drive_mppi
+  ${catkin_LIBRARIES}
 )
 target_link_libraries(reference_path_creater
   ${catkin_LIBRARIES}
-  roscpp
+)
+target_link_libraries(dkan_path_creater
+  ${catkin_LIBRARIES}
 )

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<launch>
+    <include file="$(find sq2_ccv_description)/launch/gazebo.launch">
+    <arg name="world" value="$(find amsl_gazebo_worlds)/worlds/ikuta_building_d_1f.world"/>
+    <!-- <arg name="x" value="0.13439"/> -->
+    <!-- <arg name="y" value="-0.453958"/> -->
+    <arg name="x" value="0.0"/>
+    <arg name="y" value="0.0"/>
+    </include>
+
+    <node name="diff_drive_mppi" pkg="ccv_mppi_path_tracker" type="diff_drive_mppi" output="screen">
+    <!-- <param name="mppi_path_tracker_config" textfile="$(find ccv_mppi_path_tracker)/config/diff_drive_mppi_path_tracker.yaml"/> --> 
+    <param name="v_ref" value="1.2"/>
+    <param name="v_max" value="1.0"/>
+    </node>
+
+    <node name="dkan_path_creater" pkg="ccv_mppi_path_tracker" type="dkan_path_creater" output="screen">
+    <remap from="/dkan_path_creater/path" to="/reference_path"/>
+    </node>
+
+    <node name="gazebo2grid" pkg="gazebo2grid" type="gazebo2grid" output="screen">
+    </node>
+
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/dkanconfig.rviz" output="screen"/>
+</launch>

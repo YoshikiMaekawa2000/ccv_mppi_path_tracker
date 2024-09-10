@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -g -shared -Wl,-soname,libgtest_maind.so -o ../lib/libgtest_maind.so CMakeFiles/gtest_main.dir/src/gtest_main.cc.o  -Wl,-rpath,/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/gtest/lib ../lib/libgtestd.so -lpthread 

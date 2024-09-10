@@ -1,0 +1,2 @@
+- setup-file:
+    local-name: /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/devel/setup.sh

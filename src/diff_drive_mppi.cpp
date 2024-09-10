@@ -1,6 +1,5 @@
 
 #include "ccv_mppi_path_tracker/diff_drive_mppi.h"
-// #include "ccv_mppi_path_tracker/diff_drive.h"
 
 CCVMPPIPathTracker::CCVMPPIPathTracker()
     : nh_("~"), path_received_(false), joint_state_received_(false), first_roop_(true)
@@ -14,7 +13,7 @@ CCVMPPIPathTracker::CCVMPPIPathTracker()
     path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/path", 1);
 
     // subscribers
-    path_sub_ = nh_.subscribe("/reference_path_creater/path", 1, &CCVMPPIPathTracker::path_Callback, this);
+    path_sub_ = nh_.subscribe("/reference_path", 1, &CCVMPPIPathTracker::path_Callback, this);
     joint_state_sub_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &CCVMPPIPathTracker::jointState_Callback, this);
 
     nh_.param("dt", dt_, 0.1);
@@ -22,7 +21,7 @@ CCVMPPIPathTracker::CCVMPPIPathTracker()
     nh_.param("num_samples", num_samples_, 1000.0);
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
-    nh_.param("v_max", v_max_, 1.0);
+    nh_.param("v_max", v_max_, 1.6);
     nh_.param("w_max", w_max_, 1.0);
     nh_.param("v_min", v_min_, -1.0);
     nh_.param("w_min", w_min_, -1.0);
@@ -129,15 +128,12 @@ void CCVMPPIPathTracker::publish_Path(){
 
 void CCVMPPIPathTracker::publish_CmdVel()
 {
-    // cmd_vel_.linear.x = 1.0;
-    // cmd_vel_.angular.z = 0.2;
-    // cmd_vel_.angular.z = 0;
 
     cmd_vel_.linear.x = optimal_solution.v_[0];
     cmd_vel_.angular.z = optimal_solution.w_[0];
     cmd_vel_pub_.publish(cmd_vel_);
-    std::cout << "v: " << cmd_vel_.linear.x << std::endl;
-    std::cout << "v_ref: " << v_ref_ << std::endl;
+    // std::cout << "v: " << cmd_vel_.linear.x << std::endl;
+    // std::cout << "v_ref: " << v_ref_ << std::endl;
 }
 
 void CCVMPPIPathTracker::publish_CandidatePath()
@@ -315,8 +311,9 @@ void CCVMPPIPathTracker::determine_OptimalSolution()
         }
     }
     publish_OptimalPath();
-    
 }
+
+
 
 void CCVMPPIPathTracker::run()
 {
@@ -361,7 +358,7 @@ void CCVMPPIPathTracker::run()
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "ccv_mppi_path_tracker");
+    ros::init(argc, argv, "diff_drive_mppi");
     CCVMPPIPathTracker ccv_mppi_path_tracker;
     ccv_mppi_path_tracker.run();
     return 0;
