@@ -131,6 +131,7 @@ private:
     double calc_Direction(double R, double steer_r, double steer_l);
     double calc_Omega(double vr, double vl, double steer_r, double steer_l);
     void check_Inside(double &steer_in, double &steer_out, double steer_r, double steer_l);
+    void check_Samples();
     void calc_RefPath();
     int get_CurrentIndex();
     // double calculate_Cost(DiffDrive sample);
