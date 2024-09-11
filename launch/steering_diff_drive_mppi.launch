@@ -9,7 +9,7 @@
     </node>
     <node name="reference_path_creater" pkg="ccv_mppi_path_tracker" type="reference_path_creater" output="screen">
     <param name="world_frame_id" value="odom"/>
-    <param name="A1" value="0.5"/>
+    <param name="A1" value="1"/>
     <param name="omega1" value="1"/>
     <remap from="/reference_path_creater/path" to="/reference_path"/>
     </node>
