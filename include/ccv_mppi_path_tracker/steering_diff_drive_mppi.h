@@ -12,6 +12,8 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <ccv_dynamixel_msgs/CmdPoseByRadian.h>
 #include <random>
+#include <iostream>
+#include <fstream>
 
 
 class RobotStates{
@@ -65,8 +67,7 @@ private:
     ccv_dynamixel_msgs::CmdPoseByRadian cmd_pos_;
     // subscribers
     ros::Subscriber sub_joint_state_;
-    double current_steer_in_;
-    double current_steer_out_;
+    double current_steer_r_, current_steer_l_;
     ros::Subscriber sub_path_;
     nav_msgs::Path path_;
     // for debug
@@ -118,6 +119,8 @@ private:
     bool path_received_;
     bool joint_state_received_;
     bool first_roop_;
+    bool first_save_;
+    std::ofstream ofs;
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg);
@@ -131,6 +134,9 @@ private:
     double calc_Direction(double R, double steer_r, double steer_l);
     double calc_Omega(double vr, double vl, double steer_r, double steer_l);
     void check_Inside(double &steer_in, double &steer_out, double steer_r, double steer_l);
+    void predict_NextState(RobotStates &sample, int t);
+    void adjust_Input(RobotStates &sample);
+    std::string check_State(double steer_r, double steer_l);
     void check_Samples();
     void calc_RefPath();
     int get_CurrentIndex();
@@ -144,6 +150,7 @@ private:
     void publish_RefPath();
     void publish_OptimalPath();
     void publish_CandidatePath();
+    void save_Data();
 
     
 };
