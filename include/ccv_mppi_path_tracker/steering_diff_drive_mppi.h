@@ -20,8 +20,8 @@ class RobotStates{
     public:
         RobotStates();
         void init(int horizon);
-        std::vector<double> x_, y_, yaw_;   // state
-        std::vector<double> vr_, vl_, steer_r_, steer_l_;  // control input
+        std::vector<double> x_, y_, yaw_;  // state
+        std::vector<double> v_, w_, steer_;  // control variables
 };
 RobotStates::RobotStates()
 {
@@ -33,20 +33,17 @@ void RobotStates::init(int horizon)
     x_.resize(horizon);
     y_.resize(horizon);
     yaw_.resize(horizon);
-    // control input
-    vr_.resize(horizon-1);
-    vl_.resize(horizon-1);
-    steer_r_.resize(horizon-1);
-    steer_l_.resize(horizon-1);
+
+    v_.resize(horizon-1);
+    w_.resize(horizon-1);
+    steer_.resize(horizon-1);
     for(int i=0; i<horizon-1; i++)
     {
         x_[i] = 0.0;
         y_[i] = 0.0;
         yaw_[i] = 0.0;
-        vr_[i] = 0.0;
-        vl_[i] = 0.0;
-        steer_r_[i] = 0.0;
-        steer_l_[i] = 0.0;
+        v_[i] = 0.0;
+        steer_[i] = 0.0;
     }
     x_[horizon-1] = 0.0;
     y_[horizon-1] = 0.0;

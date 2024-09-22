@@ -20,8 +20,10 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
     nh_.param("v_max", v_max_, 1.2);
+    nh_.param("w_max", w_max_, 1.0);
     nh_.param("steer_max", steer_max_, {30.0*M_PI/180.0});
     nh_.param("v_min", v_min_, -1.2);
+    nh_.param("w_min", w_min_, -1.0);
     nh_.param("steer_min", steer_min_, {-30.0*M_PI/180.0});
     nh_.param("pitch_offset", pitch_offset_, {3.0*M_PI/180.0});
     nh_.param("v_ref", v_ref_, 1.2);
@@ -79,89 +81,34 @@ void SteeringDiffDriveMPPI::sampling()
 {
     std::random_device rnd;
     std::mt19937 mt(rnd());
-    int steer = 0;
-    int parallel = 0;
-    int no_steer = 0;
-    int no_need = 0;
 
     for(int t=0; t < horizon_-1; t++)
     {
-        std::normal_distribution<> norm_vr(optimal_solution.vr_[t], control_noise_);
-        std::normal_distribution<> norm_vl(optimal_solution.vl_[t], control_noise_);
-        std::normal_distribution<> norm_steer_r(optimal_solution.steer_r_[t], control_noise_);
-        std::normal_distribution<> norm_steer_l(optimal_solution.steer_l_[t], control_noise_);
+        std::normal_distribution<> norm_v(optimal_solution.v_[t], control_noise_);
+        std::normal_distribution<> norm_w(optimal_solution.w_[t], control_noise_);
+        std::normal_distribution<> norm_steer(optimal_solution.steer_[t], control_noise_);
 
         for(int i=0; i < num_samples_; i++)
         {
-            sample[i].steer_r_[t] = norm_steer_r(mt);
-            sample[i].steer_l_[t] = norm_steer_l(mt);
-            clamp(sample[i].steer_r_[t], steer_min_, steer_max_);
-            clamp(sample[i].steer_l_[t], steer_min_, steer_max_);
-
-            std::string state = check_State(sample[i].steer_r_[t], sample[i].steer_l_[t]);      //ステアの状態により，制約が異なる．
-            if(state == "steer"){                                   //ステアを切っている場合，旋回中心が決まってしまう．滑らない条件を考慮すると，どちらかの車輪の回転速度が決まればもう一方も決まる
-                double R_r = sin(fabs(sample[i].steer_l_[t])) * tread_ / sin(fabs(sample[i].steer_r_[t] - sample[i].steer_l_[t]));
-                double R_l = sin(fabs(sample[i].steer_r_[t])) * tread_ / sin(fabs(sample[i].steer_l_[t] - sample[i].steer_r_[t]));
-                sample[i].vr_[t] = norm_vr(mt);
-                clamp(sample[i].vr_[t], v_min_*R_r/R_l, v_max_*R_r/R_l);
-                sample[i].vl_[t] = sample[i].vr_[t] * R_l / R_r;
-                steer++;
-            }
-            else if(state == "parallel"){                           //滑らないと旋回できないので，左右の速度を同じにする
-                sample[i].vr_[t] = norm_vr(mt);
-                clamp(sample[i].vr_[t], v_min_, v_max_);
-                sample[i].vl_[t] = sample[i].vr_[t];
-                parallel++;          
-            }
-            else if(state == "no_steer"){                           //通常の差動二輪と同じ
-                sample[i].vr_[t] = norm_vr(mt);
-                sample[i].vl_[t] = norm_vl(mt);
-                clamp(sample[i].vr_[t], v_min_, v_max_);
-                clamp(sample[i].vl_[t], v_min_, v_max_);
-                no_steer++;
-            }
-            else if(state == "no_need"){                            //ハの字，逆ハの字の場合．ステア角を0に変更
-                sample[i].vr_[t] = norm_vr(mt);
-                sample[i].vl_[t] = norm_vl(mt);
-                clamp(sample[i].vr_[t], v_min_, v_max_);
-                clamp(sample[i].vl_[t], v_min_, v_max_);
-                sample[i].steer_r_[t] = 0.0;
-                sample[i].steer_l_[t] = 0.0;
-                no_need++;
-            }
+            sample[i].v_[t] = norm_v(mt);
+            sample[i].w_[t] = norm_w(mt);
+            sample[i].steer_[t] = norm_steer(mt);
+            clamp(sample[i].v_[t], v_min_, v_max_);
+            clamp(sample[i].w_[t], w_min_, w_max_);
+            clamp(sample[i].steer_[t], steer_min_, steer_max_);
         }
     }
-    // std::cout << "===Sampling===" << std::endl;
-    // std::cout << "steer: " << steer*100/((horizon_-1)*num_samples_) << " parallel: " << parallel*100/((horizon_-1)*num_samples_) 
-    // << " no_steer: " << no_steer*100/((horizon_-1)*num_samples_) << " no_need: " << no_need*100/((horizon_-1)*num_samples_) << std::endl;
 }
 
 void SteeringDiffDriveMPPI::predict_NextState(RobotStates &sample, int t)
 {
-    double omega;
-    std::string state = check_State(sample.steer_r_[t], sample.steer_l_[t]);
-    if(state == "no_need") ROS_WARN("Sample Steer angle error");
-    else if(state == "parallel") omega = 0.0;
-    else if(state == "no_steer") omega = (sample.vr_[t] - sample.vl_[t]) / tread_;
-    else if(state == "steer")                                         
-    {
-        double R_r = sin(fabs(sample.steer_l_[t])) * tread_ / sin(fabs(sample.steer_r_[t] - sample.steer_l_[t]));
-        double R_l = sin(fabs(sample.steer_r_[t])) * tread_ / sin(fabs(sample.steer_l_[t] - sample.steer_r_[t]));
-        omega = (sample.vr_[t] - sample.vl_[t]) / fabs(R_r - R_l);
-    } 
-    double vx = (sample.vr_[t] * cos(sample.steer_r_[t]) + sample.vl_[t] * cos(sample.steer_l_[t])) / 2.0;
-    double vy = (sample.vr_[t] * sin(sample.steer_r_[t]) + sample.vl_[t] * sin(sample.steer_l_[t])) / 2.0;
-    sample.x_[t+1] = sample.x_[t] + vx * cos(sample.yaw_[t]) * dt_ - vy * sin(sample.yaw_[t]) * dt_;
-    sample.y_[t+1] = sample.y_[t] + vx * sin(sample.yaw_[t]) * dt_ + vy * cos(sample.yaw_[t]) * dt_;
-    sample.yaw_[t+1] = sample.yaw_[t] + omega * dt_;
+    sample.x_[t+1] = sample.x_[t] + sample.v_[t] * cos(sample.yaw_[t] + sample.steer_[t]) * dt_;
+    sample.y_[t+1] = sample.y_[t] + sample.v_[t] * sin(sample.yaw_[t] + sample.steer_[t]) * dt_;
+    sample.yaw_[t+1] = sample.yaw_[t] + sample.w_[t] * dt_;
 }
 
 void SteeringDiffDriveMPPI::predict_States()
 {
-    int steer = 0;
-    int parallel = 0;
-    int no_steer = 0;
-    int no_need = 0;
     for(int i=0; i < num_samples_; i++)
     {
         sample[i].x_[0] = current_pose_.pose.position.x;
@@ -241,8 +188,9 @@ double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
     {
         double dx = sample.x_[t] - x_ref_[t];
         double dy = sample.y_[t] - y_ref_[t];
-        double v_cost = v_ref_ - (sample.vr_[t] + sample.vl_[t]) / 2.0;
+        double v_cost = v_ref_ - sample.v_[t];
         cost += dx*dx + dy*dy + v_cost*v_cost;
+        // cost += dx*dx + dy*dy;
     }
     return cost;
 }
@@ -265,50 +213,47 @@ void SteeringDiffDriveMPPI::determine_OptimalSolution()
     // Determine optimal solution
     for(int t=0; t<horizon_; t++)
     {
-        optimal_solution.vr_[t] = 0.0;
-        optimal_solution.vl_[t] = 0.0;
-        optimal_solution.steer_r_[t] = 0.0;
-        optimal_solution.steer_l_[t] = 0.0;
+        optimal_solution.v_[t] = 0.0;
+        optimal_solution.w_[t] = 0.0;
+        optimal_solution.steer_[t] = 0.0;
         for(int i=0; i<num_samples_; i++)
         {
-            optimal_solution.vr_[t] += weights_[i] * sample[i].vr_[t];
-            optimal_solution.vl_[t] += weights_[i] * sample[i].vl_[t];
-            optimal_solution.steer_r_[t] += weights_[i] * sample[i].steer_r_[t];
-            optimal_solution.steer_l_[t] += weights_[i] * sample[i].steer_l_[t];
-        }
-    }
-
-    std::string state = check_State(optimal_solution.steer_r_[0], optimal_solution.steer_l_[0]);
-    // adjust inputs
-    for(int t=0; t < horizon_-1; t++)
-    {
-        std::string state = check_State(optimal_solution.steer_r_[t], optimal_solution.steer_l_[t]);
-        if(state == "steer"){                                   
-            double R_r = sin(fabs(optimal_solution.steer_l_[t])) * tread_ / sin(fabs(optimal_solution.steer_r_[t] - optimal_solution.steer_l_[t]));
-            double R_l = sin(fabs(optimal_solution.steer_r_[t])) * tread_ / sin(fabs(optimal_solution.steer_l_[t] - optimal_solution.steer_r_[t]));
-            optimal_solution.vl_[t] = optimal_solution.vr_[t] * R_l / R_r;
-        }
-        else if(state == "parallel") optimal_solution.vl_[t] = optimal_solution.vr_[t]; 
-        else if(state == "no_need"){  
-            optimal_solution.steer_r_[t] = 0.0;
-            optimal_solution.steer_l_[t] = 0.0;
+            optimal_solution.v_[t] += weights_[i] * sample[i].v_[t];
+            optimal_solution.w_[t] += weights_[i] * sample[i].w_[t];
+            optimal_solution.steer_[t] += weights_[i] * sample[i].steer_[t];
         }
     }
     // Publish optimal path
+    std::cout << "====================" << std::endl;
+    std::cout << "v: " << optimal_solution.v_[0] << " w: " << optimal_solution.w_[0] << " steer: " << optimal_solution.steer_[0]*180/M_PI << std::endl;
+
     publish_OptimalPath();
 }
 
 void SteeringDiffDriveMPPI::publish_CmdVel()
 {
-    cmd_vel_.linear.x = (optimal_solution.vr_[0] + optimal_solution.vl_[0]) / 2.0;
-    cmd_vel_.angular.z = (optimal_solution.vr_[0] - optimal_solution.vl_[0]) / tread_;
+    cmd_vel_.linear.x = optimal_solution.v_[0];
+    cmd_vel_.angular.z = optimal_solution.w_[0];
     pub_cmd_vel_.publish(cmd_vel_);
 }
 
 void SteeringDiffDriveMPPI::publish_CmdPos()
 {
-    cmd_pos_.steer_l = optimal_solution.steer_l_[0];
-    cmd_pos_.steer_r = optimal_solution.steer_r_[0];
+    double R = fabs(optimal_solution.v_[0] / optimal_solution.w_[0]);
+    double steer_in = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) - tread_/2.0);
+    double steer_out = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) + tread_/2.0);
+
+    std::cout << "R: " << R << std::endl;
+    std::cout << "steer_in: " << steer_in*180/M_PI << " steer_out: " << steer_out*180/M_PI << std::endl;
+
+    if(optimal_solution.w_[0] > 0.0){
+        cmd_pos_.steer_l = steer_in;
+        cmd_pos_.steer_r = steer_out;
+    }
+    else{
+        cmd_pos_.steer_l = steer_out;
+        cmd_pos_.steer_r = steer_in;
+    }
     cmd_pos_.fore=pitch_offset_;
     cmd_pos_.rear=pitch_offset_;
     cmd_pos_.roll=0.0;
@@ -381,16 +326,16 @@ void SteeringDiffDriveMPPI::get_Transform()
     }       
 }
 
-void SteeringDiffDriveMPPI::save_Data()
-{
-    // Save data
-    if(first_save_) {
-        ofs.open("/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/data/data.csv", std::ios::out);
-        first_save_ = false;
-    }
-    ofs << optimal_solution.steer_l_[0] *180/M_PI<< ",";
-    ofs << optimal_solution.steer_r_[0] *180/M_PI<< "," << std::endl;
-}
+// void SteeringDiffDriveMPPI::save_Data()
+// {
+//     // Save data
+//     if(first_save_) {
+//         ofs.open("/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/data/data.csv", std::ios::out);
+//         first_save_ = false;
+//     }
+//     ofs << optimal_solution.steer_l_[0] *180/M_PI<< ",";
+//     ofs << optimal_solution.steer_r_[0] *180/M_PI<< "," << std::endl;
+// }
 
 void SteeringDiffDriveMPPI::run()
 {
@@ -423,7 +368,7 @@ void SteeringDiffDriveMPPI::run()
                 publish_CmdVel();
                 publish_CmdPos();
                 //for analysis
-                save_Data();
+                // save_Data();
             }
         }
         ros::spinOnce();
