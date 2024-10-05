@@ -26,7 +26,7 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     nh_.param("w_min", w_min_, -1.0);
     nh_.param("steer_min", steer_min_, {-30.0*M_PI/180.0});
     nh_.param("pitch_offset", pitch_offset_, {3.0*M_PI/180.0});
-    nh_.param("v_ref", v_ref_, 1.2);
+    nh_.param("v_ref", v_ref_, 0.8);
     nh_.param("resolution", resolution_, 0.1);
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
