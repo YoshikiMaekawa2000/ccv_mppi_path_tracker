@@ -20,7 +20,7 @@ find_package(Eigen3 REQUIRED COMPONENTS system)
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES ccv_mppi_path_tracker
- CATKIN_DEPENDS geometry_msgs roscpp sensor_msgs tf
+ CATKIN_DEPENDS geometry_msgs roscpp sensor_msgs tf  
 )
 
 include_directories(
