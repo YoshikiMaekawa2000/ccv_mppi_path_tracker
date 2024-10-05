@@ -4,7 +4,7 @@
     <param name="len" value="20"/>
     <param name="fs" value="10.0"/>
     <param name="cutoff" value="1"/>
-    <param name="wave_hz" value="0.333"/>
+    <param name="wave_hz" value="0.2"/>
   </node>
   <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/ref_path.rviz" output="screen"/> -->
 </launch>
