@@ -157,7 +157,6 @@ void SteeringDiffDriveMPPI::calc_RefPath()
     current_index_ = get_CurrentIndex();
 
     double step = v_ref_ * dt_ / resolution_;
-    // int step = 1;
     for(int i=0; i<horizon_; i++)
     {
         int index = current_index_ + i * step;
@@ -180,16 +179,27 @@ void SteeringDiffDriveMPPI::calc_RefPath()
     publish_RefPath();
 }
 
+double SteeringDiffDriveMPPI::calc_MinDistance(double x, double y, vector<double> x_ref, vector<double> y_ref)
+{
+    double min_distance = 100.0;
+    for(int i=0; i<horizon_; i++)
+    {
+        double distance = sqrt(pow(x - x_ref[i], 2) + pow(y - y_ref[i], 2));
+        if(distance < min_distance) min_distance = distance;
+    }
+    return min_distance;
+}
+
 double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
 {
-    // Calculate cost
+    // cubic spline
     double cost = 0.0;
+    
     for(int t=0; t < horizon_; t++)
     {
-        double dx = sample.x_[t] - x_ref_[t];
-        double dy = sample.y_[t] - y_ref_[t];
+        double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         double v_cost = v_ref_ - sample.v_[t];
-        cost += dx*dx + dy*dy + v_cost*v_cost;
+        cost += distance*distance + 2*(v_cost*v_cost);
         // cost += dx*dx + dy*dy;
     }
     return cost;

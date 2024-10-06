@@ -14,6 +14,7 @@
 #include <random>
 #include <iostream>
 #include <fstream>
+#include "spline.h"
 
 
 class RobotStates{
@@ -136,6 +137,7 @@ private:
     std::string check_State(double steer_r, double steer_l);
     void check_Samples();
     void calc_RefPath();
+    double calc_MinDistance(double x, double y, std::vector<double> x_ref, std::vector<double> y_ref);
     int get_CurrentIndex();
     // double calculate_Cost(DiffDrive sample);
     void determine_OptimalSolution();

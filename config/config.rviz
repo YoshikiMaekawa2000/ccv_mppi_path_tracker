@@ -8,6 +8,8 @@ Panels:
         - /Status1
         - /Odometry1
         - /Odometry1/Shape1
+        - /Path2
+        - /Path2/Offset1
       Splitter Ratio: 0.5
     Tree Height: 651
   - Class: rviz/Selection
@@ -143,8 +145,8 @@ Visualization Manager:
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
-      Line Style: Lines
-      Line Width: 0.029999999329447746
+      Line Style: Billboards
+      Line Width: 0.20000000298023224
       Name: Path
       Offset:
         X: 0
@@ -211,7 +213,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 28.239383697509766
+      Distance: 34.818939208984375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -219,17 +221,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 6.0801215171813965
-        Y: -0.7898263931274414
-        Z: -3.519993782043457
+        X: 18.048294067382812
+        Y: -2.3793163299560547
+        Z: -2.792130708694458
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.3903974294662476
+      Pitch: 1.509796380996704
       Target Frame: <Fixed Frame>
-      Yaw: 3.1054062843322754
+      Yaw: 3.1704068183898926
     Saved: ~
 Window Geometry:
   Displays:

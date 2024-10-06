@@ -45,6 +45,7 @@ class ReferencePathCreator:
             pose.pose.position.y = filtered_wave[i]
             path.poses.append(pose)
         self.pub_path.publish(path)
+        print("num op points: ", len(path.poses))
 
 
     def __call__(self):

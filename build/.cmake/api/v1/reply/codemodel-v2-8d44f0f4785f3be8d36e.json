@@ -375,9 +375,9 @@
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "dkan_path_creater::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-dkan_path_creater-Debug-d599675b5d54732b56fe.json",
-					"name" : "dkan_path_creater",
+					"id" : "dkan_path_creator::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-dkan_path_creator-Debug-39cb776baa5deac68924.json",
+					"name" : "dkan_path_creator",
 					"projectIndex" : 0
 				},
 				{
@@ -459,9 +459,9 @@
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "reference_path_creater::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-reference_path_creater-Debug-10d0b85925ebe51c21c0.json",
-					"name" : "reference_path_creater",
+					"id" : "reference_path_creator::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-reference_path_creator-Debug-863563507605d2836fb0.json",
+					"name" : "reference_path_creator",
 					"projectIndex" : 0
 				},
 				{

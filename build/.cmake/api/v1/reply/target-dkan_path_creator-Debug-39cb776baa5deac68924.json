@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "devel/lib/ccv_mppi_path_tracker/dkan_path_creater"
+			"path" : "devel/lib/ccv_mppi_path_tracker/dkan_path_creator"
 		}
 	],
 	"backtrace" : 1,
@@ -394,7 +394,7 @@
 			"id" : "tf2_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
 		}
 	],
-	"id" : "dkan_path_creater::@6890427a1f51a3e7e1df",
+	"id" : "dkan_path_creator::@6890427a1f51a3e7e1df",
 	"link" : 
 	{
 		"commandFragments" : 
@@ -527,8 +527,8 @@
 		],
 		"language" : "CXX"
 	},
-	"name" : "dkan_path_creater",
-	"nameOnDisk" : "dkan_path_creater",
+	"name" : "dkan_path_creator",
+	"nameOnDisk" : "dkan_path_creator",
 	"paths" : 
 	{
 		"build" : ".",

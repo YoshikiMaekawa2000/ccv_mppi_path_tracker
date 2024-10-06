@@ -31,11 +31,11 @@ include_directories(
 link_directories(/opt/ros/noetic/lib)
 add_executable(diff_drive_mppi src/diff_drive_mppi.cpp)
 add_executable(steering_diff_drive_mppi src/steering_diff_drive_mppi.cpp)
-add_executable(reference_path_creater src/reference_path_creater.cpp)
-add_executable(dkan_path_creater src/dkan_path_creater.cpp)
+add_executable(reference_path_creator src/reference_path_creator.cpp)
+add_executable(dkan_path_creator src/dkan_path_creator.cpp)
 add_dependencies(diff_drive_mppi ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(reference_path_creater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(dkan_path_creater ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(reference_path_creator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(dkan_path_creator ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 
 
@@ -45,9 +45,9 @@ target_link_libraries(diff_drive_mppi
 target_link_libraries(steering_diff_drive_mppi
   ${catkin_LIBRARIES}
 )
-target_link_libraries(reference_path_creater
+target_link_libraries(reference_path_creator
   ${catkin_LIBRARIES}
 )
-target_link_libraries(dkan_path_creater
+target_link_libraries(dkan_path_creator
   ${catkin_LIBRARIES}
 )

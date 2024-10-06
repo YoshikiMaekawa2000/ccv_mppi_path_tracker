@@ -1,4 +1,4 @@
-#include "ccv_mppi_path_tracker/dkan_path_creater.h"
+#include "ccv_mppi_path_tracker/dkan_path_creator.h"
 
 DkanPathCreater::DkanPathCreater(): nh_("~")
 {
