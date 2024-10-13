@@ -13,9 +13,10 @@ class ReferencePathCreator:
         self.hz = rospy.get_param('/reference_path_creator/publish_frequency', 10.0)
         self.wave_hz = rospy.get_param('/reference_path_creator/wave_hz', 1.0)
         self.fs = rospy.get_param('/reference_path_creator/fs', 1000.0)
-        self.cutoff = rospy.get_param('/reference_path_creator/cutoff', 25.0)
+        self.cutoff = rospy.get_param('/reference_path_creator/cutoff', 1.0)
         self.order = rospy.get_param('/reference_path_creator/filter_order', 6)
-        self.len = rospy.get_param('/reference_path_creator/len', 10.0) 
+        self.len = rospy.get_param('/reference_path_creator/len', 20.0) 
+        self.A = rospy.get_param('/reference_path_creator/A', 2.0)
 
     # ローパスフィルタを設計する関数
     def butter_lowpass(self, cutoff, fs, order=5):
@@ -32,7 +33,7 @@ class ReferencePathCreator:
     
     def timer_callback(self, _):
         t = np.linspace(0, self.len, int(self.len * self.fs), endpoint=False)
-        square_wave = square(2 * np.pi * self.wave_hz * t)
+        square_wave = self.A*square(2 * np.pi * self.wave_hz * t)
         filtered_wave = self.butter_lowpass_filter(square_wave, self.cutoff, self.fs, self.order)
         path = Path()
         path.header.stamp = rospy.Time.now()
@@ -45,7 +46,7 @@ class ReferencePathCreator:
             pose.pose.position.y = filtered_wave[i]
             path.poses.append(pose)
         self.pub_path.publish(path)
-        print("num op points: ", len(path.poses))
+        # print("num op points: ", len(path.poses))
 
 
     def __call__(self):

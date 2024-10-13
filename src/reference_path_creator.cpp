@@ -9,9 +9,9 @@ ReferencePathCreater::ReferencePathCreater(): nh_("~")
     nh_.param("omega1", omega1_, 0.0);
     nh_.param("omega2", omega2_, 0.0);
     nh_.param("omega3", omega3_, 0.0);
-    nh_.param("delta1", delta1_, 0.0);
-    nh_.param("delta2", delta2_, 0.0);
-    nh_.param("delta3", delta3_, 0.0);
+    nh_.param("delta1", delta1_, 1.57);
+    nh_.param("delta2", delta2_, 1.57);
+    nh_.param("delta3", delta3_, 1.57);
     nh_.param("hz", hz_, 10.0);
     nh_.param("resolution", resolution_, 0.1);
     nh_.param("course_length", course_length_, 10.0);
@@ -24,6 +24,7 @@ void ReferencePathCreater::run()
 {
     ros::Rate loop_rate(hz_);
     double t = 0.0;
+    std::cout << "2*M_PI*omega1_: " << 2*M_PI*omega1_ << std::endl;
     while(ros::ok())
     {
         path_.header.stamp = ros::Time::now();
@@ -34,7 +35,10 @@ void ReferencePathCreater::run()
             pose_.header.stamp = ros::Time::now();
             pose_.header.frame_id = world_frame_;
             pose_.pose.position.x = init_x_ + s;
-            pose_.pose.position.y = A1_ * sin(omega1_ * s + delta1_) + A2_ * sin(omega2_ * s + delta2_) + A3_ * sin(omega3_ * s + delta3_) + init_y_;
+            // pose_.pose.position.y = A1_ * sin(omega1_ * s + delta1_) + A2_ * sin(omega2_ * s + delta2_) + A3_ * sin(omega3_ * s + delta3_) + init_y_;
+            // pose_.pose.position.y = A1_ * sin(2*M_PI*omega1_ * s + delta1_) + A2_ * sin(2*M_PI*omega2_ * s + delta2_) + A3_ * sin(2*M_PI*omega3_ * s + delta3_) + init_y_;
+            pose_.pose.position.y = A1_ * cos(2*M_PI*omega1_ * s + delta1_) + A2_ * cos(2*M_PI*omega2_ * s + delta2_) + A3_ * cos(2*M_PI*omega3_ * s + delta3_) + init_y_;
+            pose_.pose.position.y -=A1_ + A2_ + A3_;
             pose_.pose.position.z = 0.0;
             pose_.pose.orientation.w = 1.0;
             path_.poses.push_back(pose_);

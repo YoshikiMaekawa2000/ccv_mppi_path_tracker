@@ -94,6 +94,8 @@ private:
     double v_min_, w_min_, steer_min_;
     double v_ref_;
     double lambda_;
+    double path_weight_;
+    double v_weight_;
 
     // MPPI variables
     std::vector<RobotStates> sample;

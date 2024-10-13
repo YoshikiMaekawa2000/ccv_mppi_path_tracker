@@ -1,6 +1,6 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/dkan_path_creator.dir/src/dkan_path_creater.cpp.o"
-  "CMakeFiles/dkan_path_creator.dir/src/dkan_path_creater.cpp.o.d"
+  "CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.o"
+  "CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.o.d"
   "devel/lib/ccv_mppi_path_tracker/dkan_path_creator"
   "devel/lib/ccv_mppi_path_tracker/dkan_path_creator.pdb"
 )

@@ -17,14 +17,14 @@ def butter_lowpass_filter(data, cutoff, fs, order=5):
 
 # サンプリング周波数とカットオフ周波数を設定
 fs = 1000.0  # サンプリング周波数（Hz）
-cutoff = 10.0  # カットオフ周波数（Hz）
+cutoff = 25.0  # カットオフ周波数（Hz）
 
 # 時間ベクトル
 T = 1.0  # 波形の長さ（秒）
 t = np.linspace(0, T, int(fs * T), endpoint=False)
 
 # 方形波を生成
-square_wave = square(2 * np.pi * 1 * t)  # 5Hzの方形波
+square_wave = square(2 * np.pi * 5 * t)  # 5Hzの方形波
 
 # ローパスフィルタを適用
 filtered_wave = butter_lowpass_filter(square_wave, cutoff, fs, order=6)

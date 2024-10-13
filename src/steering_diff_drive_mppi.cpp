@@ -31,6 +31,8 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
+    nh_.param("path_weight", path_weight_, 1.0);
+    nh_.param("control_weight", v_weight_, 1.0);
 
     // Initialize sample[i]
     sample.resize(num_samples_);
@@ -198,8 +200,12 @@ double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
     for(int t=0; t < horizon_; t++)
     {
         double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
+        // double dx = sample.x_[t] - x_ref_[t];
+        // double dy = sample.y_[t] - y_ref_[t];
         double v_cost = v_ref_ - sample.v_[t];
-        cost += distance*distance + 2*(v_cost*v_cost);
+        v_cost = std::abs(v_cost);
+        // cost += path_weight_* (distance*distance) + v_weight_*(v_cost*v_cost);
+        cost += path_weight_ * distance + v_weight_ * v_cost;
         // cost += dx*dx + dy*dy;
     }
     return cost;
@@ -233,6 +239,9 @@ void SteeringDiffDriveMPPI::determine_OptimalSolution()
             optimal_solution.steer_[t] += weights_[i] * sample[i].steer_[t];
         }
     }
+    // clamp(optimal_solution.v_[0], v_min_, v_max_);
+    // clamp(optimal_solution.w_[0], w_min_, w_max_);
+    // clamp(optimal_solution.steer_[0], steer_min_, steer_max_);
     // Publish optimal path
     std::cout << "====================" << std::endl;
     std::cout << "v: " << optimal_solution.v_[0] << " w: " << optimal_solution.w_[0] << " steer: " << optimal_solution.steer_[0]*180/M_PI << std::endl;
@@ -252,6 +261,8 @@ void SteeringDiffDriveMPPI::publish_CmdPos()
     double R = fabs(optimal_solution.v_[0] / optimal_solution.w_[0]);
     double steer_in = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) - tread_/2.0);
     double steer_out = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) + tread_/2.0);
+    // clamp(steer_in, steer_min_, steer_max_);
+    // clamp(steer_out, steer_min_, steer_max_);
 
     std::cout << "R: " << R << std::endl;
     std::cout << "steer_in: " << steer_in*180/M_PI << " steer_out: " << steer_out*180/M_PI << std::endl;
@@ -336,16 +347,6 @@ void SteeringDiffDriveMPPI::get_Transform()
     }       
 }
 
-// void SteeringDiffDriveMPPI::save_Data()
-// {
-//     // Save data
-//     if(first_save_) {
-//         ofs.open("/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/data/data.csv", std::ios::out);
-//         first_save_ = false;
-//     }
-//     ofs << optimal_solution.steer_l_[0] *180/M_PI<< ",";
-//     ofs << optimal_solution.steer_r_[0] *180/M_PI<< "," << std::endl;
-// }
 
 void SteeringDiffDriveMPPI::run()
 {

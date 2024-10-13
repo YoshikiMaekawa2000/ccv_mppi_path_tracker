@@ -1,142 +1,265 @@
-
 #include "ccv_mppi_path_tracker/diff_drive_mppi.h"
 
-CCVMPPIPathTracker::CCVMPPIPathTracker()
-    : nh_("~"), path_received_(false), joint_state_received_(false), first_roop_(true)
+DiffDriveMPPI::DiffDriveMPPI()
+    : nh_("~"), path_received_(false), joint_state_received_(false), first_roop_(true), tread_(0.501), wheel_radius_(0.1435)
 {
-    // publishers 
-    cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/sq2_ccv/diff_drive_steering_controller/cmd_vel", 1);
-    // confirmations
-    ref_path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
-    candidate_path_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/ccv_mppi_path_tracker/candidate_path", 1);
-    optimal_path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/optimal_path", 1);
-    path_pub_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/path", 1);
-
+    // publishers
+    pub_cmd_vel_ = nh_.advertise<geometry_msgs::Twist>("/local/cmd_vel", 1);
+    pub_cmd_pos_ = nh_.advertise<ccv_dynamixel_msgs::CmdPoseByRadian>("/local/cmd_pos", 1);
     // subscribers
-    path_sub_ = nh_.subscribe("/reference_path", 1, &CCVMPPIPathTracker::path_Callback, this);
-    joint_state_sub_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &CCVMPPIPathTracker::jointState_Callback, this);
+    sub_path_ = nh_.subscribe("/reference_path", 1, &DiffDriveMPPI::pathCallback, this);
+    sub_joint_state_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &DiffDriveMPPI::jointStateCallback, this);
+    // for debug
+    pub_ref_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
+    pub_candidate_path_ = nh_.advertise<visualization_msgs::MarkerArray>("/ccv_mppi_path_tracker/candidate_path", 1);
+    pub_optimal_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/optimal_path", 1);
 
     nh_.param("dt", dt_, 0.1);
     nh_.param("horizon", horizon_, 15);
     nh_.param("num_samples", num_samples_, 1000.0);
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
-    nh_.param("v_max", v_max_, 1.6);
+    nh_.param("v_max", v_max_, 1.2);
     nh_.param("w_max", w_max_, 1.0);
-    nh_.param("v_min", v_min_, -1.0);
+    nh_.param("v_min", v_min_, -1.2);
     nh_.param("w_min", w_min_, -1.0);
-    nh_.param("v_ref", v_ref_, 1.2);
+    nh_.param("pitch_offset", pitch_offset_, {3.0*M_PI/180.0});
+    nh_.param("v_ref", v_ref_, 0.8);
     nh_.param("resolution", resolution_, 0.1);
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
-    nh_.param("kinematic_model", KINEMATIC_MODEL, std::string("diff_drive"));
+    nh_.param("path_weight", path_weight_, 1.0);
+    nh_.param("control_weight", v_weight_, 1.0);
 
-    // Initialize sample
+    // Initialize sample[i]
     sample.resize(num_samples_);
-    for (int i = 0; i < num_samples_; i++)
-    {
-        sample[i].init(horizon_);
-    }
+    for (int i = 0; i < num_samples_; i++) sample[i].init(horizon_);
     // Initialize optimal_solution
     optimal_solution.init(horizon_);
     // Initialize reference path
-    reference_x_.resize(horizon_);
-    reference_y_.resize(horizon_);
-    reference_yaw_.resize(horizon_);
+    x_ref_.resize(horizon_);
+    y_ref_.resize(horizon_);
+    yaw_ref_.resize(horizon_);
     // Initialize weights
     weights_.resize(num_samples_);
 }
-
-void CCVMPPIPathTracker::path_Callback(const nav_msgs::Path::ConstPtr &msg)
+void DiffDriveMPPI::pathCallback(const nav_msgs::Path::ConstPtr &msg)
 {
     path_ = *msg;
+    if(!path_received_) path_received_ = true;
+}
+void DiffDriveMPPI::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
+{
+    current_steer_l_ = msg->position[5];   //left
+    current_steer_r_ = msg->position[7];   //right
+
+    if(!joint_state_received_) joint_state_received_ = true;
+    std::string state = check_State(current_steer_r_, current_steer_l_);
+    // if(state == "no_need")  ROS_ERROR("===== Current Steer Angle is Invalid =====");
+}
+void DiffDriveMPPI::clamp(double &val, double min, double max)
+{
+    if(val < min) val = min;
+    else if(val > max) val = max;
     
-    if (!path_received_)
-    {
-        path_received_ = true;
-    }
 }
-void CCVMPPIPathTracker::jointState_Callback(const sensor_msgs::JointState::ConstPtr &msg)
+std::string DiffDriveMPPI::check_State(double steer_r, double steer_l)
 {
-    joint_state_ = *msg;
-    if (!joint_state_received_)
-    {
-        joint_state_received_ = true;
-    }
-}
-
-void CCVMPPIPathTracker::get_Transform()
-{
-    try
-    {
-        listener_.lookupTransform(WORLD_FRAME, ROBOT_FRAME, ros::Time(0), transform_);
-        tf::transformStampedTFToMsg(transform_, transform_msg_);
-        current_pose_.header = transform_msg_.header;
-        current_pose_.pose.position.x = transform_msg_.transform.translation.x;
-        current_pose_.pose.position.y = transform_msg_.transform.translation.y;
-        current_pose_.pose.orientation = transform_msg_.transform.rotation;
-        // std::cout << "===Transformed===" << std::endl;
-    }
-    catch (tf::TransformException &ex)
-    {
-        ROS_ERROR("%s", ex.what());
-    }
-
-    // test
-    //  std::cout << "===Current pose===" << std::endl;
-    //  std::cout << "x: " << current_pose_.pose.position.x << std::endl;
-    //  std::cout << "y: " << current_pose_.pose.position.y << std::endl;
-    //  std::cout << "yaw: " << tf::getYaw(current_pose_.pose.orientation) << std::endl;
+    std::string state;
+    double eps = 0.1*M_PI/180.0;
+    if(steer_r < 0.0 && steer_l > 0.0 ||steer_r > 0.0 && steer_l < 0.0)  state = "no_need";        //ハの字，逆ハの字の場合は使わない
+    else if(fabs(steer_r - steer_l) < eps){
+        if(fabs(steer_r) < eps && fabs(steer_l) < eps)  state = "no_steer";                             //通常の差動二輪と同じ
+        else  state = "parallel";                                                                       //左右のステアが平行の場合
+    }                            
+    else  state = "steer";                                                                              //ステアを切っている場合
+    return state;
 }
 
-void CCVMPPIPathTracker::clamp(double &x, double min, double max)
+void DiffDriveMPPI::sampling()
 {
-    if (x < min)
-    {
-        x = min;
-    }
-    else if (x > max)
-    {
-        x = max;
-    }
-}
-
-void CCVMPPIPathTracker::sampling()
-{
-    // Add Gaussian noise to control inputs
     std::random_device rnd;
     std::mt19937 mt(rnd());
-    for (int t = 0; t < horizon_; t++)
+
+    for(int t=0; t < horizon_-1; t++)
     {
         std::normal_distribution<> norm_v(optimal_solution.v_[t], control_noise_);
         std::normal_distribution<> norm_w(optimal_solution.w_[t], control_noise_);
-        for (int i = 0; i < num_samples_; i++)
+
+        for(int i=0; i < num_samples_; i++)
         {
             sample[i].v_[t] = norm_v(mt);
             sample[i].w_[t] = norm_w(mt);
-            // Clamp control inputs
             clamp(sample[i].v_[t], v_min_, v_max_);
             clamp(sample[i].w_[t], w_min_, w_max_);
         }
     }
 }
-void CCVMPPIPathTracker::publish_Path(){
-    path_pub_.publish(path_marker_);
+
+void DiffDriveMPPI::predict_NextState(RobotStates &sample, int t)
+{
+    sample.x_[t+1] = sample.x_[t] + sample.v_[t] * cos(sample.yaw_[t]) * dt_;
+    sample.y_[t+1] = sample.y_[t] + sample.v_[t] * sin(sample.yaw_[t]) * dt_;
+    sample.yaw_[t+1] = sample.yaw_[t] + sample.w_[t] * dt_;
 }
 
-
-void CCVMPPIPathTracker::publish_CmdVel()
+void DiffDriveMPPI::predict_States()
 {
+    for(int i=0; i < num_samples_; i++)
+    {
+        sample[i].x_[0] = current_pose_.pose.position.x;
+        sample[i].y_[0] = current_pose_.pose.position.y;
+        sample[i].yaw_[0] = tf::getYaw(current_pose_.pose.orientation);
 
+        for(int t=0; t<horizon_-1; t++){
+            predict_NextState(sample[i], t);
+        }
+    }
+    publish_CandidatePath();
+}
+
+int DiffDriveMPPI::get_CurrentIndex()
+{
+    int index = 0;
+    double min_distance = 100.0;
+    for (int i = 0; i < path_.poses.size(); i++)
+    {
+        double distance = sqrt(pow(current_pose_.pose.position.x - path_.poses[i].pose.position.x, 2) + pow(current_pose_.pose.position.y - path_.poses[i].pose.position.y, 2));
+        if (distance < min_distance)
+        {
+            min_distance = distance;
+            index = i;
+        }
+    }
+    return index;
+}
+
+void DiffDriveMPPI::publish_RefPath()
+{
+    ref_path_.header.frame_id = WORLD_FRAME;
+    ref_path_.header.stamp = ros::Time::now();
+    ref_path_.poses.resize(horizon_);
+    for(int i=0; i<horizon_; i++)
+    {
+        ref_path_.poses[i].pose.position.x = x_ref_[i];
+        ref_path_.poses[i].pose.position.y = y_ref_[i];
+        ref_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(yaw_ref_[i]);
+    }
+    pub_ref_path_.publish(ref_path_);
+}
+
+void DiffDriveMPPI::calc_RefPath()
+{
+    current_index_ = get_CurrentIndex();
+
+    double step = v_ref_ * dt_ / resolution_;
+    for(int i=0; i<horizon_; i++)
+    {
+        int index = current_index_ + i * step;
+        if(index < path_.poses.size())
+        {
+            x_ref_[i] = path_.poses[index].pose.position.x;
+            y_ref_[i] = path_.poses[index].pose.position.y;
+        }
+        else
+        {
+            x_ref_[i] = path_.poses[path_.poses.size()-1].pose.position.x;
+            y_ref_[i] = path_.poses[path_.poses.size()-1].pose.position.y;
+        }
+    }
+    for(int i=0; i<horizon_-1; i++)
+    {
+        yaw_ref_[i] = atan2(y_ref_[i+1]-y_ref_[i], x_ref_[i+1]-x_ref_[i]);
+    }
+    // Publish reference path
+    publish_RefPath();
+}
+
+double DiffDriveMPPI::calc_MinDistance(double x, double y, vector<double> x_ref, vector<double> y_ref)
+{
+    double min_distance = 100.0;
+    for(int i=0; i<horizon_; i++)
+    {
+        double distance = sqrt(pow(x - x_ref[i], 2) + pow(y - y_ref[i], 2));
+        if(distance < min_distance) min_distance = distance;
+    }
+    return min_distance;
+}
+
+double DiffDriveMPPI::calc_Cost(RobotStates sample)
+{
+    // cubic spline
+    double cost = 0.0;
+    
+    for(int t=0; t < horizon_; t++)
+    {
+        double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
+        // double dx = sample.x_[t] - x_ref_[t];
+        // double dy = sample.y_[t] - y_ref_[t];
+        double v_cost = v_ref_ - sample.v_[t];
+        v_cost = std::abs(v_cost);
+        // cost += path_weight_* (distance*distance) + v_weight_*(v_cost*v_cost);
+        cost += path_weight_ * distance + v_weight_ * v_cost;
+        // cost += dx*dx + dy*dy;
+    }
+    return cost;
+}
+
+void DiffDriveMPPI::calc_Weights()
+{
+    calc_RefPath();
+    double sum = 0.0;
+    for(int i=0; i<num_samples_; i++)
+    {
+        double cost = calc_Cost(sample[i]);
+        weights_[i] = exp(-cost / lambda_);
+        sum += weights_[i];
+    }
+    for(int i=0; i<num_samples_; i++) weights_[i] /= sum;
+}
+
+void DiffDriveMPPI::determine_OptimalSolution()
+{
+    // Determine optimal solution
+    for(int t=0; t<horizon_; t++)
+    {
+        optimal_solution.v_[t] = 0.0;
+        optimal_solution.w_[t] = 0.0;
+        for(int i=0; i<num_samples_; i++)
+        {
+            optimal_solution.v_[t] += weights_[i] * sample[i].v_[t];
+            optimal_solution.w_[t] += weights_[i] * sample[i].w_[t];
+        }
+    }
+    // clamp(optimal_solution.v_[0], v_min_, v_max_);
+    // clamp(optimal_solution.w_[0], w_min_, w_max_);
+    // clamp(optimal_solution.steer_[0], steer_min_, steer_max_);
+    // Publish optimal path
+    std::cout << "====================" << std::endl;
+    std::cout << "v: " << optimal_solution.v_[0] << " w: " << optimal_solution.w_[0]  << std::endl;
+
+    publish_OptimalPath();
+}
+
+void DiffDriveMPPI::publish_CmdVel()
+{
     cmd_vel_.linear.x = optimal_solution.v_[0];
     cmd_vel_.angular.z = optimal_solution.w_[0];
-    cmd_vel_pub_.publish(cmd_vel_);
-    // std::cout << "v: " << cmd_vel_.linear.x << std::endl;
-    // std::cout << "v_ref: " << v_ref_ << std::endl;
+    pub_cmd_vel_.publish(cmd_vel_);
 }
 
-void CCVMPPIPathTracker::publish_CandidatePath()
+void DiffDriveMPPI::publish_CmdPos()
+{
+    cmd_pos_.steer_l = 0.0;
+    cmd_pos_.steer_r = 0.0;
+    cmd_pos_.fore=pitch_offset_;
+    cmd_pos_.rear=pitch_offset_;
+    cmd_pos_.roll=0.0;
+    pub_cmd_pos_.publish(cmd_pos_);
+}
+
+void DiffDriveMPPI::publish_CandidatePath()
 {
     candidate_path_marker_.markers.resize(num_samples_);
     for (int i = 0; i < num_samples_; i++)
@@ -147,7 +270,7 @@ void CCVMPPIPathTracker::publish_CandidatePath()
         candidate_path_marker_.markers[i].id = i;
         candidate_path_marker_.markers[i].type = visualization_msgs::Marker::LINE_STRIP;
         candidate_path_marker_.markers[i].action = visualization_msgs::Marker::ADD;
-        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;
+        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;         
         candidate_path_marker_.markers[i].scale.x = 0.05;
         candidate_path_marker_.markers[i].color.a = 1.0;
         candidate_path_marker_.markers[i].color.r = 0.0;
@@ -164,202 +287,87 @@ void CCVMPPIPathTracker::publish_CandidatePath()
             candidate_path_marker_.markers[i].points[t] = p;
         }
     }
-    candidate_path_pub_.publish(candidate_path_marker_);
+    pub_candidate_path_.publish(candidate_path_marker_);
 }
-
-void CCVMPPIPathTracker::predict_States()
-{
-    for (int i = 0; i < num_samples_; i++)
-    {
-        sample[i].x_[0] = current_pose_.pose.position.x;
-        sample[i].y_[0] = current_pose_.pose.position.y;
-        sample[i].yaw_[0] = tf::getYaw(current_pose_.pose.orientation);
-    }
-    // Predict states
-    for (int i = 0; i < num_samples_; i++)
-    {
-        for (int t = 0; t < horizon_ - 1; t++)
-        {
-            sample[i].x_[t + 1] = sample[i].x_[t] + sample[i].v_[t] * cos(sample[i].yaw_[t]) * dt_;
-            sample[i].y_[t + 1] = sample[i].y_[t] + sample[i].v_[t] * sin(sample[i].yaw_[t]) * dt_;
-            sample[i].yaw_[t + 1] = sample[i].yaw_[t] + sample[i].w_[t] * dt_;
-        }
-    }
-    // Publish candidate path
-    publish_CandidatePath();
-}
-
-int CCVMPPIPathTracker::get_CurrentIndex()
-{
-    int index = 0;
-    double min_distance = 100.0;
-    for (int i = 0; i < path_.poses.size(); i++)
-    {
-        double distance = sqrt(pow(current_pose_.pose.position.x - path_.poses[i].pose.position.x, 2) + pow(current_pose_.pose.position.y - path_.poses[i].pose.position.y, 2));
-        if (distance < min_distance)
-        {
-            min_distance = distance;
-            index = i;
-        }
-    }
-    return index;
-}
-
-void CCVMPPIPathTracker::publish_RefPath()
-{
-    ref_path_.header.frame_id = WORLD_FRAME;
-    ref_path_.header.stamp = ros::Time::now();
-    ref_path_.poses.resize(horizon_);
-    for(int i=0; i<horizon_; i++)
-    {
-        ref_path_.poses[i].pose.position.x = reference_x_[i];
-        ref_path_.poses[i].pose.position.y = reference_y_[i];
-        ref_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(reference_yaw_[i]);
-    }
-    ref_path_pub_.publish(ref_path_);
-}
-void CCVMPPIPathTracker::calculate_RefPath()
-{
-    // Calculate reference path
-    current_index_ = get_CurrentIndex();
-  
-    //あとで直す
-    // double step = v_ref_ * dt_ / resolution_;
-    int step = 1;
-    for(int i=0; i<horizon_; i++)
-    {
-        int index = current_index_ + i * step;
-        if(index < path_.poses.size())
-        {
-            reference_x_[i] = path_.poses[index].pose.position.x;
-            reference_y_[i] = path_.poses[index].pose.position.y;
-        }
-        else
-        {
-            reference_x_[i] = path_.poses[path_.poses.size()-1].pose.position.x;
-            reference_y_[i] = path_.poses[path_.poses.size()-1].pose.position.y;
-        }
-    }
-    for(int i=0; i<horizon_-1; i++)
-    {
-        reference_yaw_[i] = atan2(reference_y_[i+1]-reference_y_[i], reference_x_[i+1]-reference_x_[i]);
-    }
-
-    // Publish reference path
-    publish_RefPath();
-}
-
-double CCVMPPIPathTracker::calculate_Cost(DiffDrive sample)
-{
-    // Calculate cost
-    double cost = 0.0;
-    for(int t=0; t<horizon_; t++)
-    {
-        double dx = sample.x_[t] - reference_x_[t];
-        double dy = sample.y_[t] - reference_y_[t];
-        double dyaw = sample.yaw_[t] - reference_yaw_[t];
-        cost += dx*dx + dy*dy + dyaw*dyaw;
-    }
-    return cost;
-}
-void CCVMPPIPathTracker::calculate_Weights()
-{
-    //calcurate reference path
-    calculate_RefPath();
-
-    // Calculate weights
-    double sum = 0.0;
-    for(int i=0; i<num_samples_; i++)
-    {
-        // Calculate cost
-        double cost = calculate_Cost(sample[i]);
-
-        weights_[i] = exp(-cost / lambda_);
-        sum += weights_[i];
-    }
-    // Normalize weights
-    for(int i=0; i<num_samples_; i++)
-    {
-        weights_[i] /= sum;
-    }
-}
-
-void CCVMPPIPathTracker::publish_OptimalPath()
+void DiffDriveMPPI::publish_OptimalPath()
 {
     optimal_path_.header.frame_id = WORLD_FRAME;
     optimal_path_.header.stamp = ros::Time::now();
-    optimal_path_.poses.resize(horizon_);
-    for(int i=0; i<horizon_; i++)
+    optimal_path_.poses.resize(horizon_-1);
+    optimal_solution.x_[0] = current_pose_.pose.position.x;
+    optimal_solution.y_[0] = current_pose_.pose.position.y;
+    optimal_solution.yaw_[0] = tf::getYaw(current_pose_.pose.orientation);
+    for(int i=0; i<horizon_-1; i++)
     {
-        optimal_path_.poses[i].pose.position.x = sample[0].x_[i];
-        optimal_path_.poses[i].pose.position.y = sample[0].y_[i];
-        optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(sample[0].yaw_[i]);
+        predict_NextState(optimal_solution, i);
+        optimal_path_.poses[i].pose.position.x = optimal_solution.x_[i];
+        optimal_path_.poses[i].pose.position.y = optimal_solution.y_[i];
+        optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(optimal_solution.yaw_[i]);
     }
-    optimal_path_pub_.publish(optimal_path_);
+    
+    pub_optimal_path_.publish(optimal_path_);
 }
-void CCVMPPIPathTracker::determine_OptimalSolution()
+
+void DiffDriveMPPI::get_Transform()
 {
-    // Determine optimal solution
-    for(int t=0; t<horizon_; t++)
+    try
     {
-        optimal_solution.v_[t] = 0.0;
-        optimal_solution.w_[t] = 0.0;
-        for(int i=0; i<num_samples_; i++)
-        {
-            optimal_solution.v_[t] += weights_[i] * sample[i].v_[t];
-            optimal_solution.w_[t] += weights_[i] * sample[i].w_[t];
-        }
+        listener_.lookupTransform(WORLD_FRAME, ROBOT_FRAME, ros::Time(0), transform_);
+        tf::transformStampedTFToMsg(transform_, transform_msg_);
+        current_pose_.header = transform_msg_.header;
+        current_pose_.pose.position.x = transform_msg_.transform.translation.x;
+        current_pose_.pose.position.y = transform_msg_.transform.translation.y;
+        current_pose_.pose.orientation = transform_msg_.transform.rotation;
     }
-    publish_OptimalPath();
+    catch (tf::TransformException &ex)
+    {
+        ROS_ERROR("%s", ex.what());
+    }       
 }
 
 
-
-void CCVMPPIPathTracker::run()
+void DiffDriveMPPI::run()
 {
     ros::Rate loop_rate(10);
 
-    while (ros::ok())
+    while(ros::ok())
     {
-        if (path_received_ && joint_state_received_)
+        if(path_received_)
         {
-            if (first_roop_)
+            if(first_roop_)
             {
                 last_time_ = ros::Time::now().toSec();
                 first_roop_ = false;
             }
-            else
-            {
+            else{
                 current_time_ = ros::Time::now().toSec();
                 dt_ = current_time_ - last_time_;
                 last_time_ = current_time_;
-
-                // std::cout << "===Path and joint state received===" << std::endl;
-                // Implement MPPI here
                 // 0. Get transform
                 get_Transform();
-                // 1. Sample control inputs
+                // 1. Sampling
                 sampling();
-                // 2. Predict states
+                // 2. Predict state
                 predict_States();
                 // 3. Calculate weights
-                calculate_Weights();
-                // 4. determine optimal solution
+                calc_Weights();
+                // 4. Determine optimal solution
                 determine_OptimalSolution();
-                // 5. Publish path and cmd_vel
-                publish_Path();
+                // 5. Publish cmd_pos and cmd_vel
                 publish_CmdVel();
+                publish_CmdPos();
+                //for analysis
+                // save_Data();
             }
         }
         ros::spinOnce();
         loop_rate.sleep();
     }
 }
-
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "diff_drive_mppi");
-    CCVMPPIPathTracker ccv_mppi_path_tracker;
-    ccv_mppi_path_tracker.run();
+    DiffDriveMPPI diff_drive_mppi;
+    diff_drive_mppi.run();
     return 0;
 }

@@ -1014,29 +1014,29 @@ src/diff_drive_mppi.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/diff_drive_mppi.dir/build.make CMakeFiles/diff_drive_mppi.dir/src/diff_drive_mppi.cpp.s
 .PHONY : src/diff_drive_mppi.cpp.s
 
-src/dkan_path_creater.o: src/dkan_path_creater.cpp.o
-.PHONY : src/dkan_path_creater.o
+src/dkan_path_creator.o: src/dkan_path_creator.cpp.o
+.PHONY : src/dkan_path_creator.o
 
 # target to build an object file
-src/dkan_path_creater.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creater.cpp.o
-.PHONY : src/dkan_path_creater.cpp.o
+src/dkan_path_creator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.o
+.PHONY : src/dkan_path_creator.cpp.o
 
-src/dkan_path_creater.i: src/dkan_path_creater.cpp.i
-.PHONY : src/dkan_path_creater.i
+src/dkan_path_creator.i: src/dkan_path_creator.cpp.i
+.PHONY : src/dkan_path_creator.i
 
 # target to preprocess a source file
-src/dkan_path_creater.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creater.cpp.i
-.PHONY : src/dkan_path_creater.cpp.i
+src/dkan_path_creator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.i
+.PHONY : src/dkan_path_creator.cpp.i
 
-src/dkan_path_creater.s: src/dkan_path_creater.cpp.s
-.PHONY : src/dkan_path_creater.s
+src/dkan_path_creator.s: src/dkan_path_creator.cpp.s
+.PHONY : src/dkan_path_creator.s
 
 # target to generate assembly for a file
-src/dkan_path_creater.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creater.cpp.s
-.PHONY : src/dkan_path_creater.cpp.s
+src/dkan_path_creator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.s
+.PHONY : src/dkan_path_creator.cpp.s
 
 src/reference_path_creator.o: src/reference_path_creator.cpp.o
 .PHONY : src/reference_path_creator.o
@@ -1165,9 +1165,9 @@ help:
 	@echo "... src/diff_drive_mppi.o"
 	@echo "... src/diff_drive_mppi.i"
 	@echo "... src/diff_drive_mppi.s"
-	@echo "... src/dkan_path_creater.o"
-	@echo "... src/dkan_path_creater.i"
-	@echo "... src/dkan_path_creater.s"
+	@echo "... src/dkan_path_creator.o"
+	@echo "... src/dkan_path_creator.i"
+	@echo "... src/dkan_path_creator.s"
 	@echo "... src/reference_path_creator.o"
 	@echo "... src/reference_path_creator.i"
 	@echo "... src/reference_path_creator.s"
