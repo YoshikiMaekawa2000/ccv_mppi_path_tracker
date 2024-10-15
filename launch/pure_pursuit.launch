@@ -6,8 +6,8 @@
     <param name="course_length" value="20"/>
     <param name="A1" value="1.5"/>
     <param name="omega1" value="0.127"/>
-    <!-- <param name="A2" value="0.75"/> -->
-    <param name="A2" value="0"/>
+    <param name="A2" value="0.75"/>
+    <!-- <param name="A2" value="0"/> -->
     <param name="omega2" value="0.254"/>
     <remap from="/reference_path_creater/path" to="/reference_path"/>
     <param name="delta1" value="0.0"/>
@@ -19,8 +19,8 @@
 
     <node name="pure_pursuit_steering" pkg="ccv_pure_pursuit_steering" type="ccv_pure_pursuit_steering" output="screen">
         <param name="max_target_velocity" value="1.2"/>
-        <param name="max_steering_angle" value="0.0"/>
-        <!-- <param name="max_steering_angle" value="30.0"/> -->
+        <!-- <param name="max_steering_angle" value="0.0"/> -->
+        <param name="max_steering_angle" value="30.0"/>
         <param name="hz" value="50"/>
         <param name="L1" value="1.5"/>
         <param name="L2" value="0.5"/>

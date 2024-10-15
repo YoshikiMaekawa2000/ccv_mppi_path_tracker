@@ -60,11 +60,14 @@ class RecordState:
         nodes = subprocess.check_output(["rosnode", "list"]).splitlines()
         pure_pursuit = "/pure_pursuit_steering"
         mppi = "/steering_diff_drive_mppi"
+        d_mppi = "/diff_drive_mppi"
         for node in nodes:
             node = node.decode("utf-8")
             if(node == pure_pursuit):
                 return "../log/pure_pursuit/"
             elif(node == mppi):
+                return "../log/mppi/"
+            elif(node == d_mppi):
                 return "../log/mppi/"
 
     def get_true_pose(self):
@@ -98,12 +101,15 @@ class RecordState:
         self.csv_writer.writerow(["x", "y", "x_tf", "y_tf", "v", "cmd_v", "path_x", "path_y"])
 
         while not rospy.is_shutdown():
-            true_x, true_y = self.get_true_pose()
-            tf_x, tf_y = self.get_tf_pose()
-            true_v = self.state.twist[1].linear.x
-            cmd_v = self.cmd_vel.linear.x
-            self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
-            rate.sleep()
+            # if(tf_x < 15):
+                true_x, true_y = self.get_true_pose()
+                tf_x, tf_y = self.get_tf_pose()
+                true_v = self.state.twist[1].linear.x
+                cmd_v = self.cmd_vel.linear.x
+                self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
+                rate.sleep()
+            # else:
+                # pass
             
 
 if __name__ == '__main__':

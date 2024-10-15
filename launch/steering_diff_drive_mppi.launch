@@ -22,7 +22,7 @@
     <remap from="/reference_path_creater/path" to="/reference_path"/>
     <param name="delta1" value="0.0"/>
     <param name="delta2" value="0.0"/>
-    <param name="delta3" value="0.0"/>   
+    <param name="delta3" value="0.0"/>
     </node>
 
     <!-- <include file="$(find ccv_mppi_path_tracker)/launch/reference_path_creator.launch"/> -->
