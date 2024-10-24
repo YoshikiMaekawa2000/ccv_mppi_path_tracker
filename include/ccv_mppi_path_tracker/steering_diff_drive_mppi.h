@@ -11,6 +11,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <ccv_dynamixel_msgs/CmdPoseByRadian.h>
+#include <gazebo_msgs/ModelStates.h>
 #include <random>
 #include <iostream>
 #include <fstream>
@@ -68,6 +69,8 @@ private:
     double current_steer_r_, current_steer_l_;
     ros::Subscriber sub_path_;
     nav_msgs::Path path_;
+    ros::Subscriber sub_model_state_;
+    gazebo_msgs::ModelStates model_states_;
     // for debug
     ros::Publisher pub_ref_path_;
     nav_msgs::Path ref_path_;
@@ -123,6 +126,7 @@ private:
     std::ofstream ofs;
 
     void pathCallback(const nav_msgs::Path::ConstPtr& msg);
+    void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg);
     void get_Transform();
     void sampling();

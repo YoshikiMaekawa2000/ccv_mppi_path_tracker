@@ -8,6 +8,7 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     pub_cmd_pos_ = nh_.advertise<ccv_dynamixel_msgs::CmdPoseByRadian>("/local/cmd_pos", 1);
     // subscribers
     sub_path_ = nh_.subscribe("/reference_path", 1, &SteeringDiffDriveMPPI::pathCallback, this);
+    // sub_model_state_ = nh_.subscribe("/gazebo/model_states", 1, &SteeringDiffDriveMPPI::modelStateCallback, this);
     sub_joint_state_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &SteeringDiffDriveMPPI::jointStateCallback, this);
     // for debug
     pub_ref_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
@@ -51,6 +52,20 @@ void SteeringDiffDriveMPPI::pathCallback(const nav_msgs::Path::ConstPtr &msg)
     path_ = *msg;
     if(!path_received_) path_received_ = true;
 }
+void SteeringDiffDriveMPPI::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr &msg)
+{
+    model_states_ = *msg;
+    for(int i=0; i<model_states_.name.size(); i++)
+    {
+        if(model_states_.name[i] == "sq2_ccv")
+        {
+            current_pose_.pose.position.x = model_states_.pose[i].position.x;
+            current_pose_.pose.position.y = model_states_.pose[i].position.y;
+            current_pose_.pose.orientation = model_states_.pose[i].orientation;
+            std::cout << "current_pose_: " << current_pose_.pose.position.x << ", " << current_pose_.pose.position.y << std::endl;
+        }
+    }
+}
 void SteeringDiffDriveMPPI::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
     current_steer_l_ = msg->position[5];   //left
@@ -64,7 +79,7 @@ void SteeringDiffDriveMPPI::clamp(double &val, double min, double max)
 {
     if(val < min) val = min;
     else if(val > max) val = max;
-    
+
 }
 std::string SteeringDiffDriveMPPI::check_State(double steer_r, double steer_l)
 {
@@ -74,7 +89,7 @@ std::string SteeringDiffDriveMPPI::check_State(double steer_r, double steer_l)
     else if(fabs(steer_r - steer_l) < eps){
         if(fabs(steer_r) < eps && fabs(steer_l) < eps)  state = "no_steer";                             //通常の差動二輪と同じ
         else  state = "parallel";                                                                       //左右のステアが平行の場合
-    }                            
+    }
     else  state = "steer";                                                                              //ステアを切っている場合
     return state;
 }
@@ -196,7 +211,7 @@ double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
 {
     // cubic spline
     double cost = 0.0;
-    
+
     for(int t=0; t < horizon_; t++)
     {
         double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
@@ -292,7 +307,7 @@ void SteeringDiffDriveMPPI::publish_CandidatePath()
         candidate_path_marker_.markers[i].id = i;
         candidate_path_marker_.markers[i].type = visualization_msgs::Marker::LINE_STRIP;
         candidate_path_marker_.markers[i].action = visualization_msgs::Marker::ADD;
-        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;         
+        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;
         candidate_path_marker_.markers[i].scale.x = 0.05;
         candidate_path_marker_.markers[i].color.a = 1.0;
         candidate_path_marker_.markers[i].color.r = 0.0;
@@ -326,7 +341,7 @@ void SteeringDiffDriveMPPI::publish_OptimalPath()
         optimal_path_.poses[i].pose.position.y = optimal_solution.y_[i];
         optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(optimal_solution.yaw_[i]);
     }
-    
+
     pub_optimal_path_.publish(optimal_path_);
 }
 
@@ -344,7 +359,7 @@ void SteeringDiffDriveMPPI::get_Transform()
     catch (tf::TransformException &ex)
     {
         ROS_ERROR("%s", ex.what());
-    }       
+    }
 }
 
 
@@ -367,6 +382,7 @@ void SteeringDiffDriveMPPI::run()
                 last_time_ = current_time_;
                 // 0. Get transform
                 get_Transform();
+                // std::cout << "Do Not get transform" << std::endl;
                 // 1. Sampling
                 sampling();
                 // 2. Predict state

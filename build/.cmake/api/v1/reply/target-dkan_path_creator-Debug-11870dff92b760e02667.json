@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "devel/lib/ccv_mppi_path_tracker/diff_drive_mppi"
+			"path" : "devel/lib/ccv_mppi_path_tracker/dkan_path_creator"
 		}
 	],
 	"backtrace" : 1,
@@ -38,7 +38,7 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 32,
+				"line" : 35,
 				"parent" : 0
 			},
 			{
@@ -50,13 +50,13 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 42,
+				"line" : 51,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 36,
+				"line" : 38,
 				"parent" : 0
 			},
 			{
@@ -195,47 +195,11 @@
 	[
 		{
 			"backtrace" : 4,
-			"id" : "ccv_dynamixel_msgs_generate_messages_cpp::@6890427a1f51a3e7e1df"
+			"id" : "std_msgs_generate_messages_cpp::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
-			"id" : "ccv_dynamixel_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "ccv_dynamixel_msgs_generate_messages_lisp::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "geometry_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "geometry_msgs_generate_messages_lisp::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "geometry_msgs_generate_messages_nodejs::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "geometry_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "roscpp_generate_messages_cpp::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "roscpp_generate_messages_eus::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "roscpp_generate_messages_lisp::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 4,
-			"id" : "roscpp_generate_messages_nodejs::@6890427a1f51a3e7e1df"
+			"id" : "std_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
@@ -255,19 +219,39 @@
 		},
 		{
 			"backtrace" : 4,
-			"id" : "ccv_dynamixel_msgs_generate_messages_nodejs::@6890427a1f51a3e7e1df"
+			"id" : "geometry_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
-			"id" : "ccv_dynamixel_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
+			"id" : "geometry_msgs_generate_messages_lisp::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
-			"id" : "std_msgs_generate_messages_cpp::@6890427a1f51a3e7e1df"
+			"id" : "geometry_msgs_generate_messages_nodejs::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
-			"id" : "std_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
+			"id" : "geometry_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "ccv_dynamixel_msgs_generate_messages_cpp::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "roscpp_generate_messages_cpp::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "roscpp_generate_messages_eus::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "roscpp_generate_messages_lisp::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "roscpp_generate_messages_nodejs::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
@@ -280,6 +264,22 @@
 		{
 			"backtrace" : 4,
 			"id" : "rosgraph_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "ccv_dynamixel_msgs_generate_messages_eus::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "ccv_dynamixel_msgs_generate_messages_lisp::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "ccv_dynamixel_msgs_generate_messages_nodejs::@6890427a1f51a3e7e1df"
+		},
+		{
+			"backtrace" : 4,
+			"id" : "ccv_dynamixel_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 4,
@@ -394,7 +394,7 @@
 			"id" : "tf2_msgs_generate_messages_py::@6890427a1f51a3e7e1df"
 		}
 	],
-	"id" : "diff_drive_mppi::@6890427a1f51a3e7e1df",
+	"id" : "dkan_path_creator::@6890427a1f51a3e7e1df",
 	"link" : 
 	{
 		"commandFragments" : 
@@ -527,8 +527,8 @@
 		],
 		"language" : "CXX"
 	},
-	"name" : "diff_drive_mppi",
-	"nameOnDisk" : "diff_drive_mppi",
+	"name" : "dkan_path_creator",
+	"nameOnDisk" : "dkan_path_creator",
 	"paths" : 
 	{
 		"build" : ".",
@@ -549,7 +549,7 @@
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
-			"path" : "src/diff_drive_mppi.cpp",
+			"path" : "src/dkan_path_creator.cpp",
 			"sourceGroupIndex" : 0
 		}
 	],

@@ -9,11 +9,13 @@
     </node>
     <node name="reference_path_creator" pkg="ccv_mppi_path_tracker" type="reference_path_creator" output="screen">
     <param name="world_frame_id" value="odom"/>
-    <param name="course_length" value="20"/>
+    <param name="course_length" value="10"/>
     <param name="A1" value="1.5"/>
-    <param name="omega1" value="0.127"/>
-    <param name="A2" value="0.75"/>
-    <param name="omega2" value="0.254"/>
+    <!-- <param name="omega1" value="0.127"/> -->
+    <param name="omega1" value="0.254"/>
+    <!-- <param name="omega1" value="0.381"/> -->
+    <!-- <param name="A2" value="1.0"/> -->
+    <!-- <param name="omega2" value="0.254"/> -->
     <remap from="/reference_path_creater/path" to="/reference_path"/>
     <param name="delta1" value="0.0"/>
     <param name="delta2" value="0.0"/>

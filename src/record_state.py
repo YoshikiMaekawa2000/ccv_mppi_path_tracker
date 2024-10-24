@@ -10,6 +10,7 @@ from tf2_ros import TransformException
 import datetime
 import subprocess
 import csv
+import numpy as np
 
 
 
@@ -86,7 +87,7 @@ class RecordState:
 
     def record_path(self):
         for i, pose in enumerate(self.path.poses):
-            self.csv_writer.writerow(["", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
+            self.csv_writer.writerow(["", "", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
         self.csv_file.close()
             
         
@@ -98,15 +99,18 @@ class RecordState:
         self.csv_file = open(self.file_name, "w", newline="")
 
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["x", "y", "x_tf", "y_tf", "v", "cmd_v", "path_x", "path_y"])
-
+        self.csv_writer.writerow(["time", "x", "y", "x_tf", "y_tf", "v", "cmd_v", "path_x", "path_y"])
+        start = rospy.get_time()
         while not rospy.is_shutdown():
             # if(tf_x < 15):
                 true_x, true_y = self.get_true_pose()
                 tf_x, tf_y = self.get_tf_pose()
-                true_v = self.state.twist[1].linear.x
+                true_v = np.sqrt(self.state.twist[1].linear.x**2 + self.state.twist[1].linear.y**2)
+                if(self.state.twist[1].linear.x < 0):
+                    true_v = -true_v
                 cmd_v = self.cmd_vel.linear.x
-                self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
+                self.csv_writer.writerow([rospy.get_time() - start, true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
+                # self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
                 rate.sleep()
             # else:
                 # pass
