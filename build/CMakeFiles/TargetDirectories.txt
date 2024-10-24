@@ -55,8 +55,8 @@
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/tf2_msgs_generate_messages_py.dir
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/diff_drive_mppi.dir
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/steering_diff_drive_mppi.dir
-/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/reference_path_creater.dir
-/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/dkan_path_creater.dir
+/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/reference_path_creator.dir
+/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/dkan_path_creator.dir
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/test.dir
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/edit_cache.dir
 /home/amsl/catkin_ws/src/ccv_mppi_path_tracker/build/CMakeFiles/rebuild_cache.dir

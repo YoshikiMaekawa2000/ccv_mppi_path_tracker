@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<launch>
+  <node pkg="ccv_mppi_path_tracker" type="reference_path_creator.py" name="reference_path_creator" cwd="node" output="screen">
+  <!-- コースの長さ-->
+    <param name="len" value="20"/>
+    <!-- fsは10で固定.間隔が0.1mになる -->
+    <param name="fs" value="10.0"/>
+    <!-- # #amplitude of the path  -->
+    <param name="cutoff" value="1"/>
+    <!-- 方形波のHz．1mに含まれる波の数  -->
+    <param name="wave_hz" value="0.2"/>
+  </node>
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/ref_path.rviz" output="screen"/> -->
+</launch>

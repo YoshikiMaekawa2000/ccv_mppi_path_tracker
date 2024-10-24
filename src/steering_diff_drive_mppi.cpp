@@ -8,6 +8,7 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     pub_cmd_pos_ = nh_.advertise<ccv_dynamixel_msgs::CmdPoseByRadian>("/local/cmd_pos", 1);
     // subscribers
     sub_path_ = nh_.subscribe("/reference_path", 1, &SteeringDiffDriveMPPI::pathCallback, this);
+    // sub_model_state_ = nh_.subscribe("/gazebo/model_states", 1, &SteeringDiffDriveMPPI::modelStateCallback, this);
     sub_joint_state_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &SteeringDiffDriveMPPI::jointStateCallback, this);
     // for debug
     pub_ref_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
@@ -31,6 +32,8 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
+    nh_.param("path_weight", path_weight_, 1.0);
+    nh_.param("control_weight", v_weight_, 1.0);
 
     // Initialize sample[i]
     sample.resize(num_samples_);
@@ -49,6 +52,20 @@ void SteeringDiffDriveMPPI::pathCallback(const nav_msgs::Path::ConstPtr &msg)
     path_ = *msg;
     if(!path_received_) path_received_ = true;
 }
+void SteeringDiffDriveMPPI::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr &msg)
+{
+    model_states_ = *msg;
+    for(int i=0; i<model_states_.name.size(); i++)
+    {
+        if(model_states_.name[i] == "sq2_ccv")
+        {
+            current_pose_.pose.position.x = model_states_.pose[i].position.x;
+            current_pose_.pose.position.y = model_states_.pose[i].position.y;
+            current_pose_.pose.orientation = model_states_.pose[i].orientation;
+            std::cout << "current_pose_: " << current_pose_.pose.position.x << ", " << current_pose_.pose.position.y << std::endl;
+        }
+    }
+}
 void SteeringDiffDriveMPPI::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
     current_steer_l_ = msg->position[5];   //left
@@ -62,7 +79,7 @@ void SteeringDiffDriveMPPI::clamp(double &val, double min, double max)
 {
     if(val < min) val = min;
     else if(val > max) val = max;
-    
+
 }
 std::string SteeringDiffDriveMPPI::check_State(double steer_r, double steer_l)
 {
@@ -72,7 +89,7 @@ std::string SteeringDiffDriveMPPI::check_State(double steer_r, double steer_l)
     else if(fabs(steer_r - steer_l) < eps){
         if(fabs(steer_r) < eps && fabs(steer_l) < eps)  state = "no_steer";                             //通常の差動二輪と同じ
         else  state = "parallel";                                                                       //左右のステアが平行の場合
-    }                            
+    }
     else  state = "steer";                                                                              //ステアを切っている場合
     return state;
 }
@@ -157,7 +174,6 @@ void SteeringDiffDriveMPPI::calc_RefPath()
     current_index_ = get_CurrentIndex();
 
     double step = v_ref_ * dt_ / resolution_;
-    // int step = 1;
     for(int i=0; i<horizon_; i++)
     {
         int index = current_index_ + i * step;
@@ -180,16 +196,31 @@ void SteeringDiffDriveMPPI::calc_RefPath()
     publish_RefPath();
 }
 
+double SteeringDiffDriveMPPI::calc_MinDistance(double x, double y, vector<double> x_ref, vector<double> y_ref)
+{
+    double min_distance = 100.0;
+    for(int i=0; i<horizon_; i++)
+    {
+        double distance = sqrt(pow(x - x_ref[i], 2) + pow(y - y_ref[i], 2));
+        if(distance < min_distance) min_distance = distance;
+    }
+    return min_distance;
+}
+
 double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
 {
-    // Calculate cost
+    // cubic spline
     double cost = 0.0;
+
     for(int t=0; t < horizon_; t++)
     {
-        double dx = sample.x_[t] - x_ref_[t];
-        double dy = sample.y_[t] - y_ref_[t];
+        double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
+        // double dx = sample.x_[t] - x_ref_[t];
+        // double dy = sample.y_[t] - y_ref_[t];
         double v_cost = v_ref_ - sample.v_[t];
-        cost += dx*dx + dy*dy + v_cost*v_cost;
+        v_cost = std::abs(v_cost);
+        // cost += path_weight_* (distance*distance) + v_weight_*(v_cost*v_cost);
+        cost += path_weight_ * distance + v_weight_ * v_cost;
         // cost += dx*dx + dy*dy;
     }
     return cost;
@@ -223,6 +254,9 @@ void SteeringDiffDriveMPPI::determine_OptimalSolution()
             optimal_solution.steer_[t] += weights_[i] * sample[i].steer_[t];
         }
     }
+    // clamp(optimal_solution.v_[0], v_min_, v_max_);
+    // clamp(optimal_solution.w_[0], w_min_, w_max_);
+    // clamp(optimal_solution.steer_[0], steer_min_, steer_max_);
     // Publish optimal path
     std::cout << "====================" << std::endl;
     std::cout << "v: " << optimal_solution.v_[0] << " w: " << optimal_solution.w_[0] << " steer: " << optimal_solution.steer_[0]*180/M_PI << std::endl;
@@ -242,6 +276,8 @@ void SteeringDiffDriveMPPI::publish_CmdPos()
     double R = fabs(optimal_solution.v_[0] / optimal_solution.w_[0]);
     double steer_in = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) - tread_/2.0);
     double steer_out = std::atan2(R*sin(optimal_solution.steer_[0]), R*cos(optimal_solution.steer_[0]) + tread_/2.0);
+    // clamp(steer_in, steer_min_, steer_max_);
+    // clamp(steer_out, steer_min_, steer_max_);
 
     std::cout << "R: " << R << std::endl;
     std::cout << "steer_in: " << steer_in*180/M_PI << " steer_out: " << steer_out*180/M_PI << std::endl;
@@ -271,7 +307,7 @@ void SteeringDiffDriveMPPI::publish_CandidatePath()
         candidate_path_marker_.markers[i].id = i;
         candidate_path_marker_.markers[i].type = visualization_msgs::Marker::LINE_STRIP;
         candidate_path_marker_.markers[i].action = visualization_msgs::Marker::ADD;
-        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;         
+        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;
         candidate_path_marker_.markers[i].scale.x = 0.05;
         candidate_path_marker_.markers[i].color.a = 1.0;
         candidate_path_marker_.markers[i].color.r = 0.0;
@@ -305,7 +341,7 @@ void SteeringDiffDriveMPPI::publish_OptimalPath()
         optimal_path_.poses[i].pose.position.y = optimal_solution.y_[i];
         optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(optimal_solution.yaw_[i]);
     }
-    
+
     pub_optimal_path_.publish(optimal_path_);
 }
 
@@ -323,19 +359,9 @@ void SteeringDiffDriveMPPI::get_Transform()
     catch (tf::TransformException &ex)
     {
         ROS_ERROR("%s", ex.what());
-    }       
+    }
 }
 
-// void SteeringDiffDriveMPPI::save_Data()
-// {
-//     // Save data
-//     if(first_save_) {
-//         ofs.open("/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/data/data.csv", std::ios::out);
-//         first_save_ = false;
-//     }
-//     ofs << optimal_solution.steer_l_[0] *180/M_PI<< ",";
-//     ofs << optimal_solution.steer_r_[0] *180/M_PI<< "," << std::endl;
-// }
 
 void SteeringDiffDriveMPPI::run()
 {
@@ -356,6 +382,7 @@ void SteeringDiffDriveMPPI::run()
                 last_time_ = current_time_;
                 // 0. Get transform
                 get_Transform();
+                // std::cout << "Do Not get transform" << std::endl;
                 // 1. Sampling
                 sampling();
                 // 2. Predict state

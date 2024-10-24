@@ -913,30 +913,30 @@ steering_diff_drive_mppi/fast:
 .PHONY : steering_diff_drive_mppi/fast
 
 #=============================================================================
-# Target rules for targets named reference_path_creater
+# Target rules for targets named reference_path_creator
 
 # Build rule for target.
-reference_path_creater: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 reference_path_creater
-.PHONY : reference_path_creater
+reference_path_creator: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 reference_path_creator
+.PHONY : reference_path_creator
 
 # fast build rule for target.
-reference_path_creater/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creater.dir/build.make CMakeFiles/reference_path_creater.dir/build
-.PHONY : reference_path_creater/fast
+reference_path_creator/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creator.dir/build.make CMakeFiles/reference_path_creator.dir/build
+.PHONY : reference_path_creator/fast
 
 #=============================================================================
-# Target rules for targets named dkan_path_creater
+# Target rules for targets named dkan_path_creator
 
 # Build rule for target.
-dkan_path_creater: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dkan_path_creater
-.PHONY : dkan_path_creater
+dkan_path_creator: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 dkan_path_creator
+.PHONY : dkan_path_creator
 
 # fast build rule for target.
-dkan_path_creater/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creater.dir/build.make CMakeFiles/dkan_path_creater.dir/build
-.PHONY : dkan_path_creater/fast
+dkan_path_creator/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/build
+.PHONY : dkan_path_creator/fast
 
 #=============================================================================
 # Target rules for targets named gmock
@@ -1014,53 +1014,53 @@ src/diff_drive_mppi.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/diff_drive_mppi.dir/build.make CMakeFiles/diff_drive_mppi.dir/src/diff_drive_mppi.cpp.s
 .PHONY : src/diff_drive_mppi.cpp.s
 
-src/dkan_path_creater.o: src/dkan_path_creater.cpp.o
-.PHONY : src/dkan_path_creater.o
+src/dkan_path_creator.o: src/dkan_path_creator.cpp.o
+.PHONY : src/dkan_path_creator.o
 
 # target to build an object file
-src/dkan_path_creater.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creater.dir/build.make CMakeFiles/dkan_path_creater.dir/src/dkan_path_creater.cpp.o
-.PHONY : src/dkan_path_creater.cpp.o
+src/dkan_path_creator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.o
+.PHONY : src/dkan_path_creator.cpp.o
 
-src/dkan_path_creater.i: src/dkan_path_creater.cpp.i
-.PHONY : src/dkan_path_creater.i
+src/dkan_path_creator.i: src/dkan_path_creator.cpp.i
+.PHONY : src/dkan_path_creator.i
 
 # target to preprocess a source file
-src/dkan_path_creater.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creater.dir/build.make CMakeFiles/dkan_path_creater.dir/src/dkan_path_creater.cpp.i
-.PHONY : src/dkan_path_creater.cpp.i
+src/dkan_path_creator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.i
+.PHONY : src/dkan_path_creator.cpp.i
 
-src/dkan_path_creater.s: src/dkan_path_creater.cpp.s
-.PHONY : src/dkan_path_creater.s
+src/dkan_path_creator.s: src/dkan_path_creator.cpp.s
+.PHONY : src/dkan_path_creator.s
 
 # target to generate assembly for a file
-src/dkan_path_creater.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creater.dir/build.make CMakeFiles/dkan_path_creater.dir/src/dkan_path_creater.cpp.s
-.PHONY : src/dkan_path_creater.cpp.s
+src/dkan_path_creator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/dkan_path_creator.dir/build.make CMakeFiles/dkan_path_creator.dir/src/dkan_path_creator.cpp.s
+.PHONY : src/dkan_path_creator.cpp.s
 
-src/reference_path_creater.o: src/reference_path_creater.cpp.o
-.PHONY : src/reference_path_creater.o
+src/reference_path_creator.o: src/reference_path_creator.cpp.o
+.PHONY : src/reference_path_creator.o
 
 # target to build an object file
-src/reference_path_creater.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creater.dir/build.make CMakeFiles/reference_path_creater.dir/src/reference_path_creater.cpp.o
-.PHONY : src/reference_path_creater.cpp.o
+src/reference_path_creator.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creator.dir/build.make CMakeFiles/reference_path_creator.dir/src/reference_path_creator.cpp.o
+.PHONY : src/reference_path_creator.cpp.o
 
-src/reference_path_creater.i: src/reference_path_creater.cpp.i
-.PHONY : src/reference_path_creater.i
+src/reference_path_creator.i: src/reference_path_creator.cpp.i
+.PHONY : src/reference_path_creator.i
 
 # target to preprocess a source file
-src/reference_path_creater.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creater.dir/build.make CMakeFiles/reference_path_creater.dir/src/reference_path_creater.cpp.i
-.PHONY : src/reference_path_creater.cpp.i
+src/reference_path_creator.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creator.dir/build.make CMakeFiles/reference_path_creator.dir/src/reference_path_creator.cpp.i
+.PHONY : src/reference_path_creator.cpp.i
 
-src/reference_path_creater.s: src/reference_path_creater.cpp.s
-.PHONY : src/reference_path_creater.s
+src/reference_path_creator.s: src/reference_path_creator.cpp.s
+.PHONY : src/reference_path_creator.s
 
 # target to generate assembly for a file
-src/reference_path_creater.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creater.dir/build.make CMakeFiles/reference_path_creater.dir/src/reference_path_creater.cpp.s
-.PHONY : src/reference_path_creater.cpp.s
+src/reference_path_creator.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/reference_path_creator.dir/build.make CMakeFiles/reference_path_creator.dir/src/reference_path_creator.cpp.s
+.PHONY : src/reference_path_creator.cpp.s
 
 src/steering_diff_drive_mppi.o: src/steering_diff_drive_mppi.cpp.o
 .PHONY : src/steering_diff_drive_mppi.o
@@ -1155,22 +1155,22 @@ help:
 	@echo "... tf_generate_messages_nodejs"
 	@echo "... tf_generate_messages_py"
 	@echo "... diff_drive_mppi"
-	@echo "... dkan_path_creater"
+	@echo "... dkan_path_creator"
 	@echo "... gmock"
 	@echo "... gmock_main"
 	@echo "... gtest"
 	@echo "... gtest_main"
-	@echo "... reference_path_creater"
+	@echo "... reference_path_creator"
 	@echo "... steering_diff_drive_mppi"
 	@echo "... src/diff_drive_mppi.o"
 	@echo "... src/diff_drive_mppi.i"
 	@echo "... src/diff_drive_mppi.s"
-	@echo "... src/dkan_path_creater.o"
-	@echo "... src/dkan_path_creater.i"
-	@echo "... src/dkan_path_creater.s"
-	@echo "... src/reference_path_creater.o"
-	@echo "... src/reference_path_creater.i"
-	@echo "... src/reference_path_creater.s"
+	@echo "... src/dkan_path_creator.o"
+	@echo "... src/dkan_path_creator.i"
+	@echo "... src/dkan_path_creator.s"
+	@echo "... src/reference_path_creator.o"
+	@echo "... src/reference_path_creator.i"
+	@echo "... src/reference_path_creator.s"
 	@echo "... src/steering_diff_drive_mppi.o"
 	@echo "... src/steering_diff_drive_mppi.i"
 	@echo "... src/steering_diff_drive_mppi.s"
