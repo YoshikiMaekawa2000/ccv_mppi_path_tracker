@@ -16,8 +16,8 @@
     <param name="world_frame_id" value="odom"/>
     <param name="course_length" value="10"/>
     <param name="A1" value="1.5"/>
-    <!-- <param name="omega1" value="0.127"/> -->
-    <param name="omega1" value="0.254"/>
+    <param name="omega1" value="0.127"/>
+    <!-- <param name="omega1" value="0.254"/> -->
     <!-- <param name="omega1" value="0.381"/> -->
     <!-- <param name="A2" value="1.0"/> -->
     <!-- <param name="omega2" value="0.254"/> -->
@@ -30,7 +30,7 @@
     <!-- <include file="$(find ccv_mppi_path_tracker)/launch/reference_path_creator.launch"/> -->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/config.rviz" output="screen"/>
 
-    <node pkg="ccv_mppi_path_tracker" type="record_state.py" name="record_state" cwd="node" output="screen"/>
+    <!-- <node pkg="ccv_mppi_path_tracker" type="record_state.py" name="record_state" cwd="node" output="screen"/> -->
 
 
     <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/>

@@ -380,6 +380,7 @@ void SteeringDiffDriveMPPI::run()
                 current_time_ = ros::Time::now().toSec();
                 dt_ = current_time_ - last_time_;
                 last_time_ = current_time_;
+                std::cout << "dt: " << dt_ << std::endl;
                 // 0. Get transform
                 get_Transform();
                 // std::cout << "Do Not get transform" << std::endl;

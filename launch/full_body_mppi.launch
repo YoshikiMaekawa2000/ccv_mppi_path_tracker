@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- <node name="steering_diff_drive_mppi" pkg="ccv_mppi_path_tracker" type="steering_diff_drive_mppi" output="screen"> -->
+    <node name="full_body_mppi" pkg="ccv_mppi_path_tracker" type="full_body_mppi" output="screen">
+    <!-- <param name="mppi_path_tracker_config" textfile="$(find ccv_mppi_path_tracker)/config/diff_drive_mppi_path_tracker.yaml"/> -->
+    <param name="v_ref" value="1.2"/>
+    <param name="v_max" value="1.6"/>
+    <param name="path_weight" value="2.0"/>
+    <param name="v_weight" value="1.0"/>
+    <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
+    <remap from="/odom" to="/sq2_ccv/diff_drive_steering_controller/odom"/>
+    <!-- <param name="steer_max" value="30.0"/> -->
+    <!-- <param name="steer_min" value="-30.0"/> -->
+    </node>
+    <node name="reference_path_creator" pkg="ccv_mppi_path_tracker" type="reference_path_creator" output="screen">
+    <param name="world_frame_id" value="odom"/>
+    <param name="course_length" value="10"/>
+    <param name="A1" value="1.5"/>
+    <param name="omega1" value="0.127"/>
+    <!-- <param name="omega1" value="0.254"/> -->
+    <!-- <param name="omega1" value="0.381"/> -->
+    <!-- <param name="A2" value="1.0"/> -->
+    <!-- <param name="omega2" value="0.254"/> -->
+    <remap from="/reference_path_creater/path" to="/reference_path"/>
+    <param name="delta1" value="0.0"/>
+    <param name="delta2" value="0.0"/>
+    <param name="delta3" value="0.0"/>
+    </node>
+
+    <!-- <include file="$(find ccv_mppi_path_tracker)/launch/reference_path_creator.launch"/> -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find ccv_mppi_path_tracker)/config/config.rviz" output="screen"/>
+
+    <!-- <node pkg="ccv_mppi_path_tracker" type="record_state.py" name="record_state" cwd="node" output="screen"/> -->
+
+
+    <!-- <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/> -->
+</launch>
