@@ -12,6 +12,7 @@ ReferencePathCreater::ReferencePathCreater(): nh_("~")
     nh_.param("delta1", delta1_, 1.57);
     nh_.param("delta2", delta2_, 1.57);
     nh_.param("delta3", delta3_, 1.57);
+    nh_.param("R", R_, 10.0);
     nh_.param("hz", hz_, 10.0);
     nh_.param("resolution", resolution_, 0.1);
     nh_.param("course_length", course_length_, 10.0);
@@ -19,6 +20,8 @@ ReferencePathCreater::ReferencePathCreater(): nh_("~")
     nh_.param("init_y", init_y_, 0.0);
     nh_.param("init_yaw", init_yaw_, 0.0);
     nh_.param("world_frame", world_frame_, std::string("odom"));
+    nh_.param("sin", sin_, false);
+    nh_.param("circle", circle_, false);
 }
 void ReferencePathCreater::run()
 {
@@ -30,19 +33,34 @@ void ReferencePathCreater::run()
         path_.header.stamp = ros::Time::now();
         path_.header.frame_id = world_frame_;
         path_.poses.clear();
-        for(double s = 0.0; s < course_length_; s += resolution_)
-        {
-            pose_.header.stamp = ros::Time::now();
-            pose_.header.frame_id = world_frame_;
-            pose_.pose.position.x = init_x_ + s;
-            // pose_.pose.position.y = A1_ * sin(omega1_ * s + delta1_) + A2_ * sin(omega2_ * s + delta2_) + A3_ * sin(omega3_ * s + delta3_) + init_y_;
-            // pose_.pose.position.y = A1_ * sin(2*M_PI*omega1_ * s + delta1_) + A2_ * sin(2*M_PI*omega2_ * s + delta2_) + A3_ * sin(2*M_PI*omega3_ * s + delta3_) + init_y_;
-            pose_.pose.position.y = A1_ * cos(2*M_PI*omega1_ * s + delta1_) + A2_ * cos(2*M_PI*omega2_ * s + delta2_) + A3_ * cos(2*M_PI*omega3_ * s + delta3_) + init_y_;
-            pose_.pose.position.y -=A1_ + A2_ + A3_;
-            pose_.pose.position.z = 0.0;
-            pose_.pose.orientation.w = 1.0;
-            path_.poses.push_back(pose_);
+        if(sin_){
+            for(double s = 0.0; s < course_length_; s += resolution_)
+            {
+                pose_.header.stamp = ros::Time::now();
+                pose_.header.frame_id = world_frame_;
+                pose_.pose.position.x = init_x_ + s;
+                // pose_.pose.position.y = A1_ * sin(omega1_ * s + delta1_) + A2_ * sin(omega2_ * s + delta2_) + A3_ * sin(omega3_ * s + delta3_) + init_y_;
+                // pose_.pose.position.y = A1_ * sin(2*M_PI*omega1_ * s + delta1_) + A2_ * sin(2*M_PI*omega2_ * s + delta2_) + A3_ * sin(2*M_PI*omega3_ * s + delta3_) + init_y_;
+                pose_.pose.position.y = A1_ * cos(2*M_PI*omega1_ * s + delta1_) + A2_ * cos(2*M_PI*omega2_ * s + delta2_) + A3_ * cos(2*M_PI*omega3_ * s + delta3_) + init_y_;
+                pose_.pose.position.y -=A1_ + A2_ + A3_;
+                pose_.pose.position.z = 0.0;
+                pose_.pose.orientation.w = 1.0;
+                path_.poses.push_back(pose_);
+            }
         }
+        else if(circle_){
+            for(double s = 0; s <= 200*M_PI; s += resolution_/2*M_PI*R_)
+            {
+                pose_.header.stamp = ros::Time::now();
+                pose_.header.frame_id = world_frame_;
+                pose_.pose.position.x = init_x_ + R_*cos(s);
+                pose_.pose.position.y = init_y_ + R_*sin(s) + R_;
+                pose_.pose.position.z = 0.0;
+                pose_.pose.orientation.w = 1.0;
+                path_.poses.push_back(pose_);
+            }
+        }
+        
         path_pub_.publish(path_);
         ros::spinOnce();
         loop_rate.sleep();

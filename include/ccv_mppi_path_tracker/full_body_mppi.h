@@ -19,52 +19,111 @@
 #include <iostream>
 #include <fstream>
 #include <random>
+#include <queue>
 
 const double g=9.81;
 
-class DecisionVariables{
+class RobotStates{
     public:
-        DecisionVariables();
-        void init(int horizon);
-        std::vector<double> x_, y_, yaw_, zmp_x, zmp_y;
-        std::vector<double> v_, w_, steer_, roll_, pitch_;
+        RobotStates(size_t horizon){
+            size_t i_horizon;
+            if(horizon >= 2) i_horizon = horizon - 1;
+            else i_horizon = horizon;
+
+            x_.resize(horizon);
+            y_.resize(horizon);
+            yaw_.resize(horizon);
+            zmp_x_.resize(horizon);
+            zmp_y_.resize(horizon);
+            roll_.resize(horizon);
+            pitch_.resize(horizon);
+            v_.resize(i_horizon);
+            w_.resize(i_horizon);
+            direction_.resize(i_horizon);
+            roll_v_.resize(i_horizon);
+            pitch_v_.resize(i_horizon);
+            
+        }
+        RobotStates(){
+        }
+        std::vector<double> x_, y_, yaw_, roll_, pitch_, zmp_x_, zmp_y_; //state
+        std::vector<double> v_, w_, direction_, roll_v_, pitch_v_;  //input
 };
-DecisionVariables::DecisionVariables()
-{
-};
-void DecisionVariables::init(int horizon)
-{
-    // state
-    x_.resize(horizon);
-    y_.resize(horizon);
-    yaw_.resize(horizon);
-    zmp_x.resize(horizon);
-    zmp_y.resize(horizon);
-    //input
-    v_.resize(horizon-1);
-    w_.resize(horizon-1);
-    steer_.resize(horizon-1);
-    roll_.resize(horizon-1);
-    pitch_.resize(horizon-1);
-    for(int i=0; i<horizon-1; i++)
-    {
-        x_[i] = 0.0;
-        y_[i] = 0.0;
-        yaw_[i] = 0.0;
-        zmp_x[i] = 0.0;
-        zmp_y[i] = 0.0;
-        v_[i] = 0.0;
-        w_[i] = 0.0;
-        steer_[i] = 0.0;
-        roll_[i] = 0.0;
-        pitch_[i] = 0.0;
+
+// class AccelerationBuffer {
+//     private:
+//         struct DataPoint {
+//             double velocity; 
+//             double time;
+//         };
+//         std::vector<DataPoint> buffer; 
+//         size_t index;                       
+//         size_t max_size;                      
+//     public:
+//         AccelerationBuffer(size_t size) : index(0), max_size(size) {
+//             buffer.resize(size);
+//         }
+//         void addVelocity(double velocity, double timestamp) {
+//             buffer[index] = {velocity, timestamp};
+//             index = (index + 1) % max_size;
+//         }
+//         double calculateAverageAcceleration(){
+//             double total_acceleration = 0.0;
+
+//             size_t min_time_index = 0;
+//             for (size_t i = 1; i < max_size; ++i) {
+//                 if (buffer[i].time < buffer[min_time_index].time) {
+//                     min_time_index = i;
+//                 }
+//             }
+//             for(size_t i = 0; i < max_size; ++i){
+//                 if(i != min_time_index){
+//                     total_acceleration += (buffer[i].velocity - buffer[min_time_index].velocity) / (buffer[i].time - buffer[min_time_index].time);
+//                 }
+//             }
+//             return total_acceleration / (max_size - 1);
+//         }
+// };
+
+class AverageAccelerationCalculator {
+private:
+    std::queue<std::pair<double, double>> buffer; // Buffer to store {time, velocity} pairs
+    size_t bufferSize; // Maximum size of the buffer
+
+public:
+    // Constructor to initialize the buffer size
+    AverageAccelerationCalculator(size_t size) : bufferSize(size) {}
+
+    // Function to add velocity and time to the buffer
+    void addVelocity(double time, double velocity) {
+        if (buffer.size() == bufferSize) {
+            buffer.pop(); // Remove the oldest entry if the buffer is full
+        }
+        buffer.emplace(time, velocity);
     }
-    x_[horizon-1] = 0.0;
-    y_[horizon-1] = 0.0;
-    yaw_[horizon-1] = 0.0;
-    zmp_x[horizon-1] = 0.0;
-    zmp_y[horizon-1] = 0.0;
-}
+
+    // Function to calculate average acceleration
+    double calculateAverageAcceleration() {
+        if (buffer.size() < 2) {
+            throw std::runtime_error("Not enough data to calculate average acceleration.");
+        }
+
+        auto first = buffer.front();
+        auto last = buffer.back();
+
+        double initialTime = first.first;
+        double initialVelocity = first.second;
+        double finalTime = last.first;
+        double finalVelocity = last.second;
+
+        if (finalTime == initialTime) {
+            throw std::runtime_error("Invalid data: Time difference is zero.");
+        }
+
+        return (finalVelocity - initialVelocity) / (finalTime - initialTime);
+    }
+};
+
 
 class FullBodyMPPI
 {
@@ -76,16 +135,12 @@ private:
     // publishers
     ros::Publisher pub_cmd_vel_;
     // ros::Publisher pub_cmd_pos_;
-    ros::Publisher pub_roll_pitch_;
-    ros::Publisher pub_left_steering_;
-    ros::Publisher pub_right_steering_;
+    ros::Publisher pub_cmd_pos_;
     ros::Publisher pub_ref_path_;
     ros::Publisher pub_candidate_path_;
     ros::Publisher pub_optimal_path_;
     geometry_msgs::Twist cmd_vel_;
-    // ccv_dynamixel_msgs::CmdPoseByRadian cmd_pos_;
-    sq2_ccv_roll_pitch_msgs::RollPitch cmd_roll_pitch_;
-    std_msgs::Float64 steering_l_, steering_r_;
+    ccv_dynamixel_msgs::CmdPoseByRadian cmd_pos_;
     nav_msgs::Path ref_path_;
     visualization_msgs::MarkerArray candidate_path_marker_;
     nav_msgs::Path optimal_path_;
@@ -102,9 +157,10 @@ private:
 
     tf::TransformListener listener_;
     tf::StampedTransform transform_;
+    // tf::StampedTransform transform_com;
     geometry_msgs::TransformStamped transform_msg_;
 
-    void get_CurrentState(double current_drive_accel);
+    void get_CurrentState(double drive_accel, double roll_accel, double pitch_accel);
     void sampling();
     void predict_States();
     void calc_Weights();
@@ -119,10 +175,10 @@ private:
     void publish_RefPath();
 
     void clamp(double &v, double min, double max);
-    void predict_NextState(DecisionVariables &sample, int t);
-    double calc_ZMP(double lean_angle, double accel);
+    void predict_NextState(RobotStates &sample, int t);
+    double calc_ZMP(double accel, double CoM_z, double CoM_ground);
     void calc_RefPath();
-    double calc_Cost(DecisionVariables sample);
+    double calc_Cost(RobotStates sample);
     double calc_MinDistance(double x, double y, std::vector<double> x_ref, std::vector<double> y_ref);
     int get_CurrentIndex();
 
@@ -131,42 +187,38 @@ private:
 
     std::string WORLD_FRAME;
     std::string ROBOT_FRAME;
+    std::string CoM_FRAME;
 
     // MPPI param
     int horizon_;
-    double num_samples_;
+    int num_samples_;
     double control_noise_;
     double exploration_noise_;
     double lambda_;
-    double v_max_, w_max_, steer_max_, roll_max_, pitch_max_;
-    double v_min_, w_min_, steer_min_, roll_min_, pitch_min_;
+    double v_max_, w_max_, steer_max_, roll_max_, pitch_max_, roll_v_max_, pitch_v_max_;
+    double v_min_, w_min_, steer_min_, roll_min_, pitch_min_, roll_v_min_, pitch_v_min_;
     double v_ref_;
     double path_weight_;
     double v_weight_;
     double zmp_weight_;
 
-    std::vector<DecisionVariables> sample;
-    DecisionVariables optimal_solution;
-    DecisionVariables current_state_;
+    std::vector<RobotStates> sample;
+    RobotStates optimal_solution_;
+    RobotStates current_state_;
     std::vector<double> weights_;
 
     double current_centripetal_accel_;
-    double last_time_;
-    double current_time_;
-    double last_v_;
-    double current_v;
-    double last_roll_input_;
-    double last_pitch_input_;
     bool path_received_;
     bool odom_received_;
     bool joint_state_received_;
     bool link_states_received_ = false;
     bool first_roop_;
 
-    bool forward_=true;
     bool forward_leaning_=true;
+    bool forward_ = true;
 
     double dt_;
+    size_t buffer_size_;
     double resolution_;
     int current_index_;
     std::vector<double> x_ref_, y_ref_, yaw_ref_;
@@ -174,8 +226,10 @@ private:
     double tread_;
     double wheel_radius_;
     double weight_;
-    double l_center_of_mass_; //回転中心から重心までの距離
-    double h_base; //回転中心から地面までの高さ．
+    double base2CoM; //回転中心から重心までの距離
+    double ground2base; //回転中心から地面までの高さ．
+
+    double ave_com_x = 0.0;
 };
 
 
