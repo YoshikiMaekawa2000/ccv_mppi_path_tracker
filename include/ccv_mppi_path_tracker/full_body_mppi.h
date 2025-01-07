@@ -16,10 +16,12 @@
 #include <sq2_ccv_roll_pitch_msgs/RollPitch.h>
 #include <std_msgs/Float64.h>
 #include <gazebo_msgs/LinkStates.h>
+#include <sensor_msgs/Imu.h>
 #include <iostream>
 #include <fstream>
 #include <random>
 #include <queue>
+#include <gazebo_msgs/GetLinkState.h>
 
 const double g=9.81;
 
@@ -149,10 +151,19 @@ private:
     ros::Subscriber sub_odom_;
     ros::Subscriber sub_joint_state_;
     ros::Subscriber sub_link_states_;
+    ros::Subscriber sub_imu_;
     nav_msgs::Path path_;
     nav_msgs::Odometry odom_;
     sensor_msgs::JointState joint_state_;
     gazebo_msgs::LinkStates link_states_;
+    tf::Quaternion imu_;
+    double imu_roll_, imu_pitch_, imu_yaw_;
+
+    ros::Publisher pub_zmp_y_;
+    std_msgs::Float64 zmp_y_;
+
+    ros::Publisher pub_drive_accel_;
+    std_msgs::Float64 drive_accel_;
 
 
     tf::TransformListener listener_;
@@ -171,12 +182,13 @@ private:
     void odomCallback(const nav_msgs::Odometry::ConstPtr& msg);
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg);
     void linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr& msg);
+    void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
     void publish_CandidatePath();
     void publish_RefPath();
 
     void clamp(double &v, double min, double max);
     void predict_NextState(RobotStates &sample, int t);
-    double calc_ZMP(double accel, double CoM_z, double CoM_ground);
+    double calc_ZMP(double drive_accel, double angular_accel, double CoM, double z);
     void calc_RefPath();
     double calc_Cost(RobotStates sample);
     double calc_MinDistance(double x, double y, std::vector<double> x_ref, std::vector<double> y_ref);
@@ -188,6 +200,8 @@ private:
     std::string WORLD_FRAME;
     std::string ROBOT_FRAME;
     std::string CoM_FRAME;
+
+    double CoM_x, CoM_y, CoM_z;
 
     // MPPI param
     int horizon_;
@@ -208,11 +222,12 @@ private:
     std::vector<double> weights_;
 
     double current_centripetal_accel_;
-    bool path_received_;
-    bool odom_received_;
-    bool joint_state_received_;
+    bool path_received_ = false;
+    bool odom_received_ = false;
+    bool joint_state_received_ = false;
     bool link_states_received_ = false;
-    bool first_roop_;
+    bool first_roop_ = true;
+    bool imu_received_ = false;
 
     bool forward_leaning_=true;
     bool forward_ = true;
@@ -230,7 +245,8 @@ private:
     double ground2base; //回転中心から地面までの高さ．
 
     double ave_com_x = 0.0;
+    double CoM_height = 0.60;
+    double last_link_v;
+    double R = 0.11;
 };
 
-
-    

@@ -1,9 +1,8 @@
 #include "ccv_mppi_path_tracker/full_body_mppi.h"
 
 FullBodyMPPI::FullBodyMPPI()
-    : nh_("~"), path_received_(false), odom_received_(false), joint_state_received_(false), 
-    tread_(0.501), wheel_radius_(0.1435),
-    weight_(60), base2CoM(0.5735), ground2base(0.10), buffer_size_(5), first_roop_(true)
+    : nh_("~"), 
+    tread_(0.501), wheel_radius_(0.1435),base2CoM(0.5735), ground2base(0.10), buffer_size_(5)
 {
     nh_.param("dt", dt_, 0.1);
     nh_.param("horizon", horizon_, 15);
@@ -30,9 +29,8 @@ FullBodyMPPI::FullBodyMPPI()
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
-    nh_.param("CoM_frame", CoM_FRAME, std::string("battery_box_link"));
     nh_.param("path_weight", path_weight_, 1.0);
-    nh_.param("v_weight", v_weight_, 100.0);
+    nh_.param("v_weight", v_weight_, 1.0);
     nh_.param("zmp_weight", zmp_weight_, 1.0);
     
     sample.resize(num_samples_);
@@ -53,10 +51,13 @@ FullBodyMPPI::FullBodyMPPI()
     sub_odom_ = nh_.subscribe("/odom", 1, &FullBodyMPPI::odomCallback, this);
     sub_joint_state_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &FullBodyMPPI::jointStateCallback, this);
     sub_link_states_ = nh_.subscribe("/gazebo/link_states", 1, &FullBodyMPPI::linkStatesCallback, this);
+    sub_imu_ = nh_.subscribe("/gazebo/imu/data", 1, &FullBodyMPPI::imuCallback, this);
     // for debug
     pub_ref_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/ref_path", 1);
     pub_candidate_path_ = nh_.advertise<visualization_msgs::MarkerArray>("/ccv_mppi_path_tracker/candidate_path", 1);
     pub_optimal_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/optimal_path", 1);
+    pub_zmp_y_ = nh_.advertise<std_msgs::Float64>("/ccv_mppi_path_tracker/zmp_y", 1);
+    pub_drive_accel_ = nh_.advertise<std_msgs::Float64>("/ccv_mppi_path_tracker/drive_accel", 1);
 }
 void FullBodyMPPI::pathCallback(const nav_msgs::Path::ConstPtr &msg)
 {
@@ -68,56 +69,37 @@ void FullBodyMPPI::odomCallback(const nav_msgs::Odometry::ConstPtr &msg)
 {
     odom_ = *msg;
     if(!odom_received_) odom_received_ = true;
-    // std::cout << "====================" << std::endl;
-    // std::cout << "accel x: " << odom_.twist.twist.linear.x << std::endl;
 }
 
 void FullBodyMPPI::jointStateCallback(const sensor_msgs::JointState::ConstPtr &msg)
 {
     joint_state_ = *msg;
     if(!joint_state_received_) joint_state_received_ = true;
-
-    // current_state_.pitch_[0] = pitch;
-    // current_state_.pitch_[0] = ((abs(front_caster_pitch) + abs(back_caster_pitch))/2.0) * (forward_leaning_ ? 1 : -1);
-    // current_state_.roll_[0] = joint_state_.position[2];
-
-    // std::cout << "====================" << std::endl;
-    // std::cout << "front casters pitch: " << joint_state_.position[3]*180/M_PI << std::endl;
-    // std::cout << "back casters pitch: " << joint_state_.position[0]*180/M_PI << std::endl;
-    // std::cout << "roll: " << joint_state_.position[2]*180/M_PI << std::endl;
-    // std::cout << "roll vel: " << joint_state_.velocity[2]*180/M_PI << std::endl;
-    // std::cout << "steer_l: " << joint_state_.position[5]*180/M_PI << std::endl;
-    // std::cout << "steer_r: " << joint_state_.position[7]*180/M_PI << std::endl;
 }
 
 void FullBodyMPPI::linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr &msg)
 {
     link_states_ = *msg;
     if(!link_states_received_) link_states_received_ = true;
-    // std::cout << link_states_.name[4] << std::endl;
-    tf::Matrix3x3 m(tf::Quaternion(link_states_.pose[4].orientation.x, link_states_.pose[4].orientation.y, link_states_.pose[4].orientation.z, link_states_.pose[4].orientation.w));
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-    // std::cout << "roll: " << roll*180/M_PI << " pitch: " << pitch*180/M_PI << " yaw: " << yaw*180/M_PI << std::endl;
-    // std::cout << "gazebo  pitch: " << pitch*180/M_PI << std::endl;
 
-    // double x = link_states_.pose[4].position.x - link_states_.pose[1].position.x;
-    // double y = link_states_.pose[4].position.y - link_states_.pose[1].position.y;
-    // double z = link_states_.pose[4].position.z - link_states_.pose[1].position.z;
+    // tf::Matrix3x3 m(tf::Quaternion(link_states_.pose[5].orientation.x, link_states_.pose[5].orientation.y, link_states_.pose[5].orientation.z, link_states_.pose[5].orientation.w));
+    // double roll, pitch, yaw;
+    // m.getRPY(roll, pitch, yaw);
+    // double com_x = (CoM_height * sin(pitch));
+    // double com_y = (CoM_height * sin(roll));
+}
 
-    // std::cout << "====================" << std::endl;
-    // std::cout << "name: " << link_states_.name[4] << std::endl;
-    // std::cout << "battery box pose: " << link_states_.pose[4].position.x << " " << link_states_.pose[4].position.y << " " << link_states_.pose[4].position.z << std::endl;
-    
+void FullBodyMPPI::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
+{
+    imu_ = tf::Quaternion(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
+    tf::Matrix3x3(imu_).getRPY(imu_roll_, imu_pitch_, imu_yaw_);
+    if(!imu_received_) imu_received_ = true;
+    double imu_accell = msg->linear_acceleration.x;
 }
 void FullBodyMPPI::publish_CmdVel()
 {
-    // std::cout << "v: " << optimal_solution.v_[0] << " w: " << optimal_solution.w_[0] << std::endl;
-
     cmd_vel_.linear.x = optimal_solution_.v_[0];
     cmd_vel_.angular.z = optimal_solution_.w_[0];
-    // cmd_vel_.linear.x = 3.0;
-    // cmd_vel_.angular.z = 0.0;
 
     pub_cmd_vel_.publish(cmd_vel_);
 }
@@ -139,6 +121,7 @@ void FullBodyMPPI::publish_CmdPos()
     // std::cout << "steer_l: " << steering_l_.data*180/M_PI << " steer_r: " << steering_r_.data*180/M_PI << std::endl;
 
     cmd_pos_.roll = current_state_.roll_[0] + optimal_solution_.roll_v_[0] * dt_;
+    cmd_pos_.roll += optimal_solution_.roll_v_[0] * dt_;
     if (cmd_pos_.roll > roll_max_) cmd_pos_.roll = roll_max_;
     else if (cmd_pos_.roll < roll_min_) cmd_pos_.roll = roll_min_;
     
@@ -151,9 +134,10 @@ void FullBodyMPPI::publish_CmdPos()
 
     
 
-    // std::cout << "command pitch: " << optimal_solution_.pitch_[0]*180/M_PI << std::endl;
-    std::cout << "command roll: " << cmd_pos_.roll *180/M_PI << std::endl;
-    std::cout << "====================" << std::endl;
+    std::cout << "command roll: " << cmd_pos_.roll*180/M_PI << std::endl;
+    if(cmd_pos_.roll > 0.0) std::cout << "+++++++++++++++++++++++++++++++++++" << std::endl;
+    else if(cmd_pos_.roll < 0.0) std::cout << "----------------------------------" << std::endl;
+    
     pub_cmd_pos_.publish(cmd_pos_);
 }
 
@@ -288,13 +272,13 @@ double FullBodyMPPI::calc_Cost(RobotStates sample)
 {
     double cost = 0.0;
     
-    for(int t=0; t < horizon_; t++)
+    for(int t=0; t < horizon_-1; t++)
     {
         cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         cost += v_weight_ * std::abs(v_ref_ - sample.v_[t]);
         cost += zmp_weight_ * abs(sample.zmp_y_[t]);
-        // if(t != horizon_ -1 ) cost += abs(sample.roll_v_[t]);
-        // cost += zmp_weight_ * abs(sample.zmp_x_[t]);
+        // cost += abs(sample.roll_v_[t] - sample.roll_v_[t-1]);
+        // cost += abs(sample.pitch_v_[t] * 180/M_PI);
     }
     return cost;
 }
@@ -311,7 +295,7 @@ void FullBodyMPPI::calc_Weights()
         weights_[i] = exp(-cost / lambda_);
         sum += weights_[i];
     }
-    std::cout << "ave cost: " << sum_cost / num_samples_ / horizon_ << std::endl;
+    // std::cout << "ave cost: " << sum_cost / num_samples_ / (horizon_-1) << std::endl;
     for(int i=0; i<num_samples_; i++) weights_[i] /= sum;
 }
 
@@ -332,18 +316,17 @@ void FullBodyMPPI::predict_NextState(RobotStates &sample, int t)
     clamp(sample.roll_[t], roll_min_, roll_max_);
     clamp(sample.pitch_[t], pitch_min_, pitch_max_);
 
-    double ac = sample.v_[t-1] * sample.w_[t-1]; //向心加速度(速度方向の加速度と直交)
-    double ax = drive_accel * cos(sample.direction_[t-1]) - ac*sin(sample.direction_[t-1]); //ロボット座標系x軸(worldのyaw)方向の加速度
-    double ay = drive_accel * sin(sample.direction_[t-1]) + ac*cos(sample.direction_[t-1]); //ロボット座標系y軸(yaw+pi/2)方向の加速度   
+    double ac = sample.v_[t] * sample.w_[t]; //向心加速度(速度方向の加速度と直交)
+    double drive_accel_x = drive_accel * cos(sample.direction_[t]) - ac*sin(sample.direction_[t]); //ロボット座標系x軸(worldのyaw)方向の加速度
+    double drive_accel_y = drive_accel * sin(sample.direction_[t]) + ac*cos(sample.direction_[t]); //ロボット座標系y軸(yaw+pi/2)方向の加速度   
 
-    double com_ax = ax + pitch_accel * base2CoM;
-    double com_ay = ay + roll_accel * base2CoM;
-    double com_x = base2CoM * sin(sample.pitch_[t]); //大雑把
-    double com_y = -base2CoM * sin(sample.roll_[t]); //大雑把
-    double com_z = ground2base + base2CoM * cos(sample.pitch_[t]) * cos(sample.roll_[t]); //大雑把
 
-    sample.zmp_x_[t] = calc_ZMP(com_ax, com_z, com_x);
-    sample.zmp_y_[t] = calc_ZMP(com_ay, com_z, com_y);
+    double com_x = base2CoM * sin(sample.pitch_[t]); 
+    double com_y = -base2CoM * sin(sample.roll_[t]); 
+    double com_z = CoM_height* cos(sample.pitch_[t]) * cos(sample.roll_[t]);
+
+    // sample.zmp_x_[t] = calc_ZMP(com_accel_x, com_z, com_x);
+    sample.zmp_y_[t] = calc_ZMP(drive_accel_y, roll_accel, com_y, com_z);
     
 }
 
@@ -400,9 +383,10 @@ void FullBodyMPPI::clamp(double &val, double min, double max)
     else if(val > max) val = max;
 }
 
-double FullBodyMPPI::calc_ZMP(double accel, double CoM_z, double CoM_coord)
+double FullBodyMPPI::calc_ZMP(double drive_accel, double angular_accel, double CoM, double z)
 {
-    return -accel * CoM_z / g + CoM_coord;
+    double L = 2*CoM_height;
+    return CoM - (drive_accel * z / g) + ((L*L/3)+ R*R/4) *angular_accel/ g;
 }
 
 void FullBodyMPPI::get_CurrentState(double drive_accel_, double roll_accel_, double pitch_accel_)
@@ -420,46 +404,31 @@ void FullBodyMPPI::get_CurrentState(double drive_accel_, double roll_accel_, dou
     {
         ROS_ERROR("%s", ex.what());
     }
-
-    // Get current pitch ここはあとで関数化
-    double front_caster_pitch = joint_state_.position[3];
-    double back_caster_pitch = joint_state_.position[0];
-    if(front_caster_pitch < 0.0 && back_caster_pitch > 0.0) forward_leaning_ = true;
-    else if(front_caster_pitch > 0.0 && back_caster_pitch < 0.0) forward_leaning_ = false;
-    current_state_.pitch_[0] = ((abs(front_caster_pitch) + abs(back_caster_pitch))/4.0) * (forward_leaning_ ? 1 : -1); //かなり大雑把
-
+    
     // Get curretn direction
     double steer_l = joint_state_.position[5];
     double steer_r = joint_state_.position[7];
     current_state_.direction_[0] = (steer_l + steer_r) / 2.0;//大雑把
 
     // Get current roll rollはjointそのままでOK
-    current_state_.roll_[0] = joint_state_.position[2]; //許容範囲
-    
-    // 重心の座標．大雑把
-    double com_x = base2CoM * sin(current_state_.pitch_[0]); //大雑把
-    double com_y = -base2CoM * sin(current_state_.roll_[0]); //大雑把
-    double com_z = ground2base + base2CoM * cos(current_state_.pitch_[0]) * cos(current_state_.roll_[0]); //大雑把
+    // current_state_.roll_[0] = joint_state_.position[2]; //許容範囲
+    current_state_.roll_[0] = imu_roll_;
+    current_state_.pitch_[0] = imu_pitch_;
 
     //移動による重心の加速度
     double ac = odom_.twist.twist.linear.x * odom_.twist.twist.angular.z; //向心加速度(速度方向の加速度と直交)
     double drive_accel_x = drive_accel_ * cos(current_state_.direction_[0]) - ac*sin(current_state_.direction_[0]); //ロボット座標系x軸(worldのyaw)方向の加速度
     double drive_accel_y = drive_accel_ * sin(current_state_.direction_[0]) + ac*cos(current_state_.direction_[0]); //ロボット座標系y軸(yaw+pi/2)方向の加速度   
 
-    //回転によって発生する加速度を追加
-    double com_accel_x = drive_accel_x + pitch_accel_ * base2CoM;
-    double com_accel_y = drive_accel_x + roll_accel_ * base2CoM;
+    CoM_x = (CoM_height * sin(imu_pitch_));
+    CoM_y = -(CoM_height * sin(imu_roll_));
+    CoM_z = (CoM_height * cos(imu_pitch_) * cos(imu_roll_));
 
-    current_state_.zmp_x_[0] = calc_ZMP(com_accel_x, com_z, com_x);
-    current_state_.zmp_y_[0] = calc_ZMP(com_accel_y, com_z, com_y);
-    // std::cout << "current zmp_x: " << current_state_.zmp_x_[0]*100 << std::endl;
-    std::cout << "current zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
-    std::cout << "current roll: " << current_state_.roll_[0]*180/M_PI << std::endl;
-}
+    current_state_.zmp_y_[0] = calc_ZMP(drive_accel_y, roll_accel_, CoM_y, CoM_z);
+    std::cout << "====================================" << std::endl;
+    std::cout << std::fixed << std::setprecision(3) << "zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
+    // if(current_state_.zmp_y_[0] > 0.0) std::cout << "++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
 
-void FullBodyMPPI::save_Data()
-{
-    
 }
 
 void FullBodyMPPI::run()
@@ -469,59 +438,35 @@ void FullBodyMPPI::run()
 
     while(ros::ok())
     {    
-        if(path_received_ && odom_received_)
+        if(path_received_ && odom_received_ && imu_received_ && joint_state_received_)
         {
             if(first_roop_)
             {
                 last_time_ = ros::Time::now().toSec();
                 last_v_ = odom_.twist.twist.linear.x;
                 last_roll_v_ = joint_state_.velocity[2];
-                // last_pitch_v_ = joint_state_.velocity[3];
-                
                 first_roop_ = false;
             }
             else{
-                // avgDriveAccel.addVelocity(ros::Time::now().toSec(), odom_.twist.twist.linear.x);
                 dt_ = ros::Time::now().toSec() - last_time_;
                 last_time_ = ros::Time::now().toSec();
                 double drive_accel = (odom_.twist.twist.linear.x - last_v_) / dt_;
                 double roll_accel = (joint_state_.velocity[2] - last_roll_v_) / dt_;
-                // double pitch_accel = (joint_state_.velocity[3] - last_pitch_v_) / dt_;
                 last_v_ = odom_.twist.twist.linear.x;
                 last_roll_v_ = joint_state_.velocity[2];
-                // last_pitch_v_ = joint_state_.velocity[3]; 
 
                 // 0. Get Current State
                 get_CurrentState(drive_accel, roll_accel, 0.0);
+                // ===================================================================
+                // zmp_y_.data = current_state_.zmp_y_[0];
+                // pub_zmp_y_.publish(zmp_y_);
+                // drive_accel_.data = drive_accel;
+                // pub_drive_accel_.publish(drive_accel_);
+                // ===================================================================
                 // 1. Sampling
                 sampling();
                 // 2. Predict state
                 predict_States();
-                // std::cout << "roll v min: " << roll_v_min_*180/M_PI << " roll v max: " << roll_v_max_*180/M_PI << std::endl;
-
-                double max_sample_zmp_y = sample[0].zmp_y_[0];
-                double min_sample_zmp_y = sample[0].zmp_y_[0];
-                // double max_sample_roll = sample[0].roll_[0];
-                // double min_sample_roll = sample[0].roll_[0];
-                // double max_sample_roll_v = sample[0].roll_v_[0];
-                // double min_sample_roll_v = sample[0].roll_v_[0];
-                for(int i=0; i<num_samples_; i++)
-                {
-                    for(int t=0; t<horizon_-1; t++)
-                    {
-                        if(sample[i].zmp_y_[t] > max_sample_zmp_y) max_sample_zmp_y = sample[i].zmp_y_[t];
-                        if(sample[i].zmp_y_[t] < min_sample_zmp_y) min_sample_zmp_y = sample[i].zmp_y_[t];
-                        // if(sample[i].roll_[t] > max_sample_roll) max_sample_roll = sample[i].roll_[t];
-                        // if(sample[i].roll_[t] < min_sample_roll) min_sample_roll = sample[i].roll_[t];
-                        // if(sample[i].roll_v_[t] > max_sample_roll_v) max_sample_roll_v = sample[i].roll_v_[t];
-                        // if(sample[i].roll_v_[t] < min_sample_roll_v) min_sample_roll_v = sample[i].roll_v_[t];
-                    }
-                }
-                std::cout << "sample  zmp_y:  max:" << max_sample_zmp_y*100 << " | min: " << min_sample_zmp_y*100 << std::endl;
-                // std::cout << "sample  roll:  max:" << max_sample_roll*180/M_PI << " | min: " << min_sample_roll*180/M_PI << std::endl;
-                // std::cout << "max roll_v: " << max_sample_roll_v*180/M_PI << " min roll_v: " << min_sample_roll_v*180/M_PI << std::endl;
-
-
                 // 3. Calculate weights
                 calc_Weights();
                 // 4. Determine optimal solution
@@ -529,8 +474,6 @@ void FullBodyMPPI::run()
                 // 5. Publish cmd_pos and cmd_vel
                 publish_CmdVel();
                 publish_CmdPos();
-                //for analysis
-                // save_Data();
             }
         }
         ros::spinOnce();
