@@ -24,6 +24,7 @@ private:
     double course_length_;
     double init_x_, init_y_, init_yaw_;
     bool sin_, circle_;
+    double theta_;
     std::string world_frame_;
 };
 

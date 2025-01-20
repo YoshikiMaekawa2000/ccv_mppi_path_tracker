@@ -22,8 +22,10 @@
 #include <random>
 #include <queue>
 #include <gazebo_msgs/GetLinkState.h>
+#include <Eigen/Dense>
+#include <geometry_msgs/WrenchStamped.h>
 
-const double g=9.81;
+Eigen::Vector3d gravity(0.0, 0.0, -9.8);
 
 class RobotStates{
     public:
@@ -52,80 +54,6 @@ class RobotStates{
         std::vector<double> v_, w_, direction_, roll_v_, pitch_v_;  //input
 };
 
-// class AccelerationBuffer {
-//     private:
-//         struct DataPoint {
-//             double velocity; 
-//             double time;
-//         };
-//         std::vector<DataPoint> buffer; 
-//         size_t index;                       
-//         size_t max_size;                      
-//     public:
-//         AccelerationBuffer(size_t size) : index(0), max_size(size) {
-//             buffer.resize(size);
-//         }
-//         void addVelocity(double velocity, double timestamp) {
-//             buffer[index] = {velocity, timestamp};
-//             index = (index + 1) % max_size;
-//         }
-//         double calculateAverageAcceleration(){
-//             double total_acceleration = 0.0;
-
-//             size_t min_time_index = 0;
-//             for (size_t i = 1; i < max_size; ++i) {
-//                 if (buffer[i].time < buffer[min_time_index].time) {
-//                     min_time_index = i;
-//                 }
-//             }
-//             for(size_t i = 0; i < max_size; ++i){
-//                 if(i != min_time_index){
-//                     total_acceleration += (buffer[i].velocity - buffer[min_time_index].velocity) / (buffer[i].time - buffer[min_time_index].time);
-//                 }
-//             }
-//             return total_acceleration / (max_size - 1);
-//         }
-// };
-
-class AverageAccelerationCalculator {
-private:
-    std::queue<std::pair<double, double>> buffer; // Buffer to store {time, velocity} pairs
-    size_t bufferSize; // Maximum size of the buffer
-
-public:
-    // Constructor to initialize the buffer size
-    AverageAccelerationCalculator(size_t size) : bufferSize(size) {}
-
-    // Function to add velocity and time to the buffer
-    void addVelocity(double time, double velocity) {
-        if (buffer.size() == bufferSize) {
-            buffer.pop(); // Remove the oldest entry if the buffer is full
-        }
-        buffer.emplace(time, velocity);
-    }
-
-    // Function to calculate average acceleration
-    double calculateAverageAcceleration() {
-        if (buffer.size() < 2) {
-            throw std::runtime_error("Not enough data to calculate average acceleration.");
-        }
-
-        auto first = buffer.front();
-        auto last = buffer.back();
-
-        double initialTime = first.first;
-        double initialVelocity = first.second;
-        double finalTime = last.first;
-        double finalVelocity = last.second;
-
-        if (finalTime == initialTime) {
-            throw std::runtime_error("Invalid data: Time difference is zero.");
-        }
-
-        return (finalVelocity - initialVelocity) / (finalTime - initialTime);
-    }
-};
-
 
 class FullBodyMPPI
 {
@@ -152,12 +80,18 @@ private:
     ros::Subscriber sub_joint_state_;
     ros::Subscriber sub_link_states_;
     ros::Subscriber sub_imu_;
+    // ros::Subscriber sub_wrench_;
     nav_msgs::Path path_;
     nav_msgs::Odometry odom_;
     sensor_msgs::JointState joint_state_;
     gazebo_msgs::LinkStates link_states_;
     tf::Quaternion imu_;
     double imu_roll_, imu_pitch_, imu_yaw_;
+    sensor_msgs::Imu filterd_imu_;
+
+    std::vector<std::string> force_sensor_topic_;
+    std::vector<ros::Subscriber> sub_force_sensor_;
+    std::map<std::string, geometry_msgs::WrenchStamped> force_sensor_data_;
 
     ros::Publisher pub_zmp_y_;
     std_msgs::Float64 zmp_y_;
@@ -171,7 +105,11 @@ private:
     // tf::StampedTransform transform_com;
     geometry_msgs::TransformStamped transform_msg_;
 
-    void get_CurrentState(double drive_accel, double roll_accel, double pitch_accel);
+    void calc_true_ZMP();
+    Eigen::Vector3d computeZMPfromModel(Eigen::Vector3d r, Eigen::Vector3d aG, Eigen::Vector3d HOdot);
+
+    // void get_CurrentState(double drive_accel, double roll_accel, double pitch_accel);
+    void get_CurrentState();
     void sampling();
     void predict_States();
     void calc_Weights();
@@ -185,10 +123,12 @@ private:
     void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
     void publish_CandidatePath();
     void publish_RefPath();
+    Eigen::Vector3d calc_HO(Eigen::Vector3d V, Eigen::Vector3d r, Eigen::Vector3d omega);
+
+    void wrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr& msg, const std::string& topic);
 
     void clamp(double &v, double min, double max);
     void predict_NextState(RobotStates &sample, int t);
-    double calc_ZMP(double drive_accel, double angular_accel, double CoM, double z);
     void calc_RefPath();
     double calc_Cost(RobotStates sample);
     double calc_MinDistance(double x, double y, std::vector<double> x_ref, std::vector<double> y_ref);
@@ -200,6 +140,8 @@ private:
     std::string WORLD_FRAME;
     std::string ROBOT_FRAME;
     std::string CoM_FRAME;
+    std::string RIGHT_WHEEL = "right_wheel_link";
+    std::string LEFT_WHEEL = "left_wheel_link";
 
     double CoM_x, CoM_y, CoM_z;
 
@@ -233,6 +175,7 @@ private:
     bool forward_ = true;
 
     double dt_;
+    double last_time_;
     size_t buffer_size_;
     double resolution_;
     int current_index_;
@@ -244,9 +187,23 @@ private:
     double base2CoM; //回転中心から重心までの距離
     double ground2base; //回転中心から地面までの高さ．
 
-    double ave_com_x = 0.0;
     double CoM_height = 0.60;
-    double last_link_v;
-    double R = 0.11;
+    double upper_body_radius = 0.11;
+    double mass = 60.0;
+    double alpha = 0.3;
+
+    std::vector<Eigen::Vector3d> contactPositions;
+    Eigen::Vector3d base2front_r_caster, base2front_l_caster, base2back_r_caster, base2back_l_caster;
+    Eigen::Vector3d base2wheel_r, base2wheel_l;
+
+    Eigen::Vector3d last_HG;
+    Eigen::Vector3d last_v;
+    Eigen::Vector3d current_v;
+    Eigen::Matrix3d I_O;
+    Eigen::Vector3d ZMP;
+    Eigen::Vector3d z=Eigen::Vector3d(0.0, 0.0, 1.0);
+
+    Eigen::Vector3d true_ZMP;
+    double direction_input;
 };
 

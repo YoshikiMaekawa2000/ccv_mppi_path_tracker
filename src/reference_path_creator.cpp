@@ -22,6 +22,7 @@ ReferencePathCreater::ReferencePathCreater(): nh_("~")
     nh_.param("world_frame", world_frame_, std::string("odom"));
     nh_.param("sin", sin_, false);
     nh_.param("circle", circle_, false);
+    nh_.param("theta", theta_, 0.0);
 }
 void ReferencePathCreater::run()
 {
@@ -43,6 +44,11 @@ void ReferencePathCreater::run()
                 // pose_.pose.position.y = A1_ * sin(2*M_PI*omega1_ * s + delta1_) + A2_ * sin(2*M_PI*omega2_ * s + delta2_) + A3_ * sin(2*M_PI*omega3_ * s + delta3_) + init_y_;
                 pose_.pose.position.y = A1_ * cos(2*M_PI*omega1_ * s + delta1_) + A2_ * cos(2*M_PI*omega2_ * s + delta2_) + A3_ * cos(2*M_PI*omega3_ * s + delta3_) + init_y_;
                 pose_.pose.position.y -=A1_ + A2_ + A3_;
+
+                double x = pose_.pose.position.x;
+                double y = pose_.pose.position.y;
+                
+
                 pose_.pose.position.z = 0.0;
                 pose_.pose.orientation.w = 1.0;
                 path_.poses.push_back(pose_);

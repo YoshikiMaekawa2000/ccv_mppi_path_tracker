@@ -1,7 +1,16 @@
 import numpy as np
 import pandas as pd
 
-file_path = '../log/mppi/no_steer254.csv'  # CSVファイルのパスを指定してください
+
+# file_path = '../log/mppi/v:2.0_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
+file_path = '../log/mppi/v:2.0_A:1.0_f:0.25WOsteer.csv'  # CSVファイルのパスを指定してください
+# file_path = '../log/mppi/v:1.2_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
+# file_path = '../log/mppi/v:1.2_A:1.0_f:0.25WOsteer.csv'  # CSVファイルのパスを指定してください
+
+# file_path = '../log/pure_pursuit/v:2.0_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
+# file_path = '../log/pure_pursuit/v:2.0_A:1.0_f:0.25WOsteer.csv'  # CSVファイルのパスを指定してください
+# file_path = '../log/pure_pursuit/v:1.2_A:1.0_f:0.25_WOsteer.csv'  # CSVファイルのパスを指定してください
+# file_path = '../log/pure_pursuit/v:1.2_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
 data = pd.read_csv(file_path)
 
 import numpy as np
