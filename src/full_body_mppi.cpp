@@ -30,6 +30,7 @@ FullBodyMPPI::FullBodyMPPI()
     nh_.param("exploration_noise", exploration_noise_, 0.1);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
+    nh_.param("imu_frame", IMU_FRAME, std::string("imu_link"));
     nh_.param("path_weight", path_weight_, 1.0);
     nh_.param("v_weight", v_weight_, 1.0);
     nh_.param("zmp_weight", zmp_weight_, 1.0);
@@ -43,18 +44,12 @@ FullBodyMPPI::FullBodyMPPI()
         "/back_left_force_sensor/raw",
         "/back_right_force_sensor/raw"
     };
-    base2front_l_caster = Eigen::Vector3d(0.245, 0.167, -0.0);
-    base2front_r_caster = Eigen::Vector3d(0.245, -0.167, -0.0);
-    base2back_l_caster = Eigen::Vector3d(-0.245, -0.167, -0.0);
-    base2back_r_caster = Eigen::Vector3d(-0.245, 0.167, -0.0);
-    base2wheel_l = Eigen::Vector3d(0.0, 0.225, 0.0);
-    base2wheel_r = Eigen::Vector3d(0.0, -0.225, 0.0);
-    // base2front_l_caster = Eigen::Vector3d(0.245, 0.167, -0.003);
-    // base2front_r_caster = Eigen::Vector3d(0.245, -0.167, -0.003);
-    // base2back_l_caster = Eigen::Vector3d(-0.245, -0.167, -0.003);
-    // base2back_r_caster = Eigen::Vector3d(-0.245, 0.167, -0.003);
-    // base2wheel_l = Eigen::Vector3d(0.0, 0.225, 0.075);
-    // base2wheel_r = Eigen::Vector3d(0.0, -0.225, 0.075);
+    base2front_l_caster = Eigen::Vector3d(0.245, 0.167, -0.003);
+    base2front_r_caster = Eigen::Vector3d(0.245, -0.167, -0.004);
+    base2back_l_caster = Eigen::Vector3d(-0.245, -0.167, -0.004);
+    base2back_r_caster = Eigen::Vector3d(-0.245, 0.167, -0.003);
+    base2wheel_l = Eigen::Vector3d(0.0, 0.225, 0.075);
+    base2wheel_r = Eigen::Vector3d(0.0, -0.225, 0.075);
     contactPositions = {base2wheel_l, base2wheel_r, base2front_l_caster, base2front_r_caster, base2back_l_caster, base2back_r_caster};
 
     filterd_imu_.angular_velocity.x = 0.0;
@@ -74,11 +69,11 @@ FullBodyMPPI::FullBodyMPPI()
     yaw_ref_.resize(horizon_);
     weights_.resize(num_samples_);
 
-    double L=CoM_height*2;
+    base2CoM = upper_body_height/2;
     Eigen::Vector3d diagonal_values(
-    (upper_body_radius * upper_body_radius / 4 + L * L / 12) * mass + mass * CoM_height * CoM_height,
-    (upper_body_radius * upper_body_radius / 4 + L * L / 12) * mass + mass * CoM_height * CoM_height,
-    (upper_body_radius * upper_body_radius / 2) * mass);
+        (mass * (upper_body_width*upper_body_width + upper_body_height*upper_body_height))/12 + mass * base2CoM*base2CoM,
+        (mass * (upper_body_height*upper_body_height + upper_body_depth*upper_body_depth))/12 + mass * base2CoM*base2CoM,
+        (mass * (upper_body_depth*upper_body_depth + upper_body_width*upper_body_width))/12);
     I_O = diagonal_values.asDiagonal();
 
      // publishers
@@ -108,6 +103,7 @@ void FullBodyMPPI::wrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &
     {
         if (sensor_topic == "/right_force_sensor/raw")
         {
+            std::cout << std::fixed << std::setprecision(3);
             listener_.lookupTransform(ROBOT_FRAME, RIGHT_WHEEL, ros::Time(0), transform_);
             tf::Vector3 right_force(
                 force_sensor_data_[sensor_topic].wrench.force.x,
@@ -123,6 +119,7 @@ void FullBodyMPPI::wrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &
 
         else if (sensor_topic == "/left_force_sensor/raw")
         {
+            std::cout << std::fixed << std::setprecision(3);
             listener_.lookupTransform(ROBOT_FRAME, LEFT_WHEEL, ros::Time(0), transform_);
             tf::Vector3 left_force(
                 force_sensor_data_[sensor_topic].wrench.force.x,
@@ -175,15 +172,35 @@ void FullBodyMPPI::linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr &m
 
 void FullBodyMPPI::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
 {
-
-    imu_ = tf::Quaternion(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
-    tf::Matrix3x3(imu_).getRPY(imu_roll_, imu_pitch_, imu_yaw_);
+    // ノイズ除去
     filterd_imu_.angular_velocity.x = alpha * msg->angular_velocity.x + (1 - alpha) * filterd_imu_.angular_velocity.x;
     filterd_imu_.angular_velocity.y = alpha * msg->angular_velocity.y + (1 - alpha) * filterd_imu_.angular_velocity.y;
     filterd_imu_.angular_velocity.z = alpha * msg->angular_velocity.z + (1 - alpha) * filterd_imu_.angular_velocity.z;
     filterd_imu_.linear_acceleration.x = alpha * msg->linear_acceleration.x + (1 - alpha) * filterd_imu_.linear_acceleration.x;
     filterd_imu_.linear_acceleration.y = alpha * msg->linear_acceleration.y + (1 - alpha) * filterd_imu_.linear_acceleration.y;
-
+    filterd_imu_.linear_acceleration.z = alpha * msg->linear_acceleration.z + (1 - alpha) * filterd_imu_.linear_acceleration.z;
+    // IMUリンクのworld座標での傾きを取得
+    imu_orientation_ = tf::Quaternion(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
+    tf::Matrix3x3(imu_orientation_).getRPY(imu_roll_, imu_pitch_, imu_yaw_);
+   //座標変換 
+    try{
+        listener_.lookupTransform(ROBOT_FRAME, IMU_FRAME, ros::Time(0), transform_);
+        tf::Vector3 accel_imu(
+        filterd_imu_.linear_acceleration.x,
+        filterd_imu_.linear_acceleration.y,
+        filterd_imu_.linear_acceleration.z);
+        accel_base = transform_.getBasis() * accel_imu;
+        accel_x = accel_base.x();
+        accel_y = accel_base.y();
+        accel_z = accel_base.z();
+    }
+    catch (tf::TransformException &ex)
+    {
+        ROS_ERROR("TF Error: %s", ex.what());
+    }
+    //重力補償.正しいと思うコード実装しても挙動が間違ってた．これは正しくないコードだと思うけど挙動がそれっぽいからいったんこれ使う．
+    accel_x -= g*sin(imu_pitch_);
+    // accel_z -= g*cos(imu_roll_)*sin(imu_pitch_);
     if(!imu_received_) imu_received_ = true;
 }
 void FullBodyMPPI::publish_CmdVel()
@@ -215,9 +232,10 @@ void FullBodyMPPI::publish_CmdPos()
     // cmd_pos_.roll = 0.0;
     if (cmd_pos_.roll > roll_max_) cmd_pos_.roll = roll_max_;
     else if (cmd_pos_.roll < roll_min_) cmd_pos_.roll = roll_min_;
-    cmd_pos_.fore = current_state_.pitch_[0] - optimal_solution_.pitch_v_[0] * dt_;
-    cmd_pos_.rear = current_state_.pitch_[0] + optimal_solution_.pitch_v_[0] * dt_;
-    
+    // cmd_pos_.fore = current_state_.pitch_[0] - optimal_solution_.pitch_v_[0] * dt_;
+    // cmd_pos_.rear = current_state_.pitch_[0] + optimal_solution_.pitch_v_[0] * dt_;
+    cmd_pos_.fore = pitch_offset_;
+    cmd_pos_.rear = pitch_offset_;
     pub_cmd_pos_.publish(cmd_pos_);
 }
 
@@ -352,12 +370,14 @@ double FullBodyMPPI::calc_Cost(RobotStates sample)
 {
     double cost = 0.0;
     
-    for(int t=0; t < horizon_-1; t++)
+
+    for(int t=0; t < horizon_-2; t++)
     {
         cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         cost += v_weight_ * std::abs(v_ref_ - sample.v_[t]);
-        cost += zmp_weight_ * abs(sample.zmp_y_[t]);
-        cost += zmp_weight_ * abs(sample.zmp_x_[t]);
+        cost += 2 * zmp_weight_ * abs(sample.zmp_y_[t]);
+        cost += 0.1*(sample.roll_v_[t+1] - sample.roll_v_[t]);
+        // cost += zmp_weight_ * abs(sample.zmp_x_[t]);
         // cost += abs(sample.roll_v_[t] - sample.roll_v_[t-1]);
         // cost += abs(sample.pitch_v_[t] * 180/M_PI);
     }
@@ -382,40 +402,11 @@ void FullBodyMPPI::calc_Weights()
 
 void FullBodyMPPI::predict_NextState(RobotStates &sample, int t)
 {
-    sample.x_[t] = sample.x_[t-1] + sample.v_[t-1] * cos(sample.yaw_[t-1] + sample.direction_[t-1]) * dt_;
-    sample.y_[t] = sample.y_[t-1] + sample.v_[t-1] * sin(sample.yaw_[t-1] + sample.direction_[t-1]) * dt_;
-    sample.yaw_[t] = sample.yaw_[t-1] + sample.w_[t-1] * dt_;
-
-    double drive_accel, roll_accel, pitch_accel;
-
-    drive_accel = (sample.v_[t] - sample.v_[t-1]) / dt_;
-    roll_accel = (sample.roll_v_[t] - sample.roll_v_[t-1]) / dt_;
-    pitch_accel = (sample.pitch_v_[t] - sample.pitch_v_[t-1]) / dt_;
-
-    sample.roll_[t] = sample.roll_[t-1] + sample.roll_v_[t-1] * dt_;
-    sample.pitch_[t] = sample.pitch_[t-1] + sample.pitch_v_[t-1] * dt_;
-    clamp(sample.roll_[t], roll_min_, roll_max_);
-    clamp(sample.pitch_[t], pitch_min_, pitch_max_);
-
-    double ac = sample.v_[t] * sample.w_[t]; //向心加速度(速度方向の加速度と直交)
-    double drive_accel_x = drive_accel * cos(sample.direction_[t]) - ac*sin(sample.direction_[t]); //ロボット座標系x軸(worldのyaw)方向の加速度
-    double drive_accel_y = drive_accel * sin(sample.direction_[t]) + ac*cos(sample.direction_[t]); //ロボット座標系y軸(yaw+pi/2)方向の加速度   
-
-
-    double com_x = CoM_height * sin(sample.pitch_[t]); 
-    double com_y = -CoM_height * sin(sample.roll_[t]); 
-    double com_z = CoM_height* cos(sample.pitch_[t]) * cos(sample.roll_[t]);
-
-    // Eigen::Vector3d omega_dot = Eigen::Vector3d(sample.roll_v_[t] - sample.roll_v_[t-1], sample.pitch_v_[t] - sample.pitch_v_[t-1], sample.w_[t] - sample.w_[t-1]) / dt_;
-    Eigen::Vector3d omega_dot = Eigen::Vector3d(sample.roll_v_[t] - sample.roll_v_[t-1], sample.pitch_v_[t] - sample.pitch_v_[t-1], 0.0) / dt_;
-    Eigen::Vector3d OG = Eigen::Vector3d(com_x, com_y, com_z);
-    Eigen::Vector3d aG = Eigen::Vector3d(drive_accel_x, drive_accel_y, 0.0);
-    Eigen::Vector3d H_Gdot  = I_O * omega_dot;
-    Eigen::Vector3d M_O =OG.cross(mass * gravity) - OG.cross(mass * aG) - H_Gdot;
-    ZMP = z.cross(M_O) / (mass * (gravity - aG).dot(z));
-    sample.zmp_x_[t] = ZMP.x();
-    sample.zmp_y_[t] = ZMP.y();
-    
+    sample.x_[t+1] = sample.x_[t] + sample.v_[t] * cos(sample.yaw_[t] + sample.direction_[t]) * dt_;
+    sample.y_[t+1] = sample.y_[t] + sample.v_[t] * sin(sample.yaw_[t] + sample.direction_[t]) * dt_;
+    sample.yaw_[t+1] = sample.yaw_[t] + sample.w_[t] * dt_;
+    sample.roll_[t+1] = sample.roll_[t] + sample.roll_v_[t] * dt_;
+    sample.pitch_[t+1] = sample.pitch_[t] + sample.pitch_v_[t] * dt_;
 }
 
 void FullBodyMPPI::predict_States()
@@ -429,8 +420,30 @@ void FullBodyMPPI::predict_States()
         sample[i].zmp_y_[0] = current_state_.zmp_y_[0];
         sample[i].roll_[0] = current_state_.roll_[0];
         sample[i].pitch_[0] = current_state_.pitch_[0];
-        for(int t=1; t<horizon_-1; t++){
+        for(int t=0; t<horizon_-1; t++){
             predict_NextState(sample[i], t);
+        }
+        for(int t=0; t<horizon_-2; t++){
+            double drive_accel = (sample[i].v_[t+1] - sample[i].v_[t]) / dt_;
+            // double roll_accel = (sample[i].roll_v_[t+1] - sample[i].roll_v_[t]) / dt_;
+            // double pitch_accel = (sample[i].pitch_v_[t+1] - sample[i].pitch_v_[t]) / dt_;
+            // double yaw_accel = (sample[i].w_[t+1] - sample[i].w_[t]) / dt_;
+
+            double ac = sample[i].v_[t] * sample[i].w_[t]; //向心加速度(速度方向の加速度と直交)
+            double drive_accel_x = drive_accel * cos(sample[i].direction_[t]) - ac*sin(sample[i].direction_[t]); //ロボット座標系x軸(worldのyaw)方向の加速度
+            double drive_accel_y = drive_accel * sin(sample[i].direction_[t]) + ac*cos(sample[i].direction_[t]); //ロボット座標系y軸(yaw+pi/2)方向の加速度   
+
+            Eigen::Vector3d accel = Eigen::Vector3d(drive_accel_x, drive_accel_y, 0.0);
+            // Eigen::Vector3d alpha = Eigen::Vector3d(roll_accel, pitch_accel, 0.0);
+            Eigen::Vector3d next_omega = Eigen::Vector3d(sample[i].roll_v_[t+1], sample[i].pitch_v_[t+1], sample[i].w_[t+1]);
+            Eigen::Vector3d omega = Eigen::Vector3d(sample[i].roll_v_[t], sample[i].pitch_v_[t], sample[i].w_[t]);
+            Eigen::Vector3d HG_next = I_O * next_omega;
+            Eigen::Vector3d HG = I_O * omega;
+            Eigen::Vector3d HG_dot = (HG_next - HG) / dt_;
+            Eigen::Vector3d CoM = Eigen::Vector3d(base2CoM * sin(sample[i].pitch_[t]), -base2CoM * sin(sample[i].roll_[t]), base2CoM * cos(sample[i].pitch_[t]) * cos(sample[i].roll_[t]));
+            Eigen::Vector3d ZMP = computeZMPfromModel(CoM, accel, HG_dot);
+            sample[i].zmp_x_[t] = ZMP.x();
+            sample[i].zmp_y_[t] = ZMP.y();
         }
     }
     publish_CandidatePath();
@@ -486,23 +499,20 @@ void FullBodyMPPI::get_CurrentState()
     {
         ROS_ERROR("%s", ex.what());
     }
-
     // Get current roll and pitch
     current_state_.roll_[0] = imu_roll_;
-    current_state_.pitch_[0] = imu_pitch_; 
-
-    CoM_x = (CoM_height * sin(imu_pitch_));
-    CoM_y = -(CoM_height * sin(imu_roll_));
-    CoM_z = (CoM_height * cos(imu_pitch_) * cos(imu_roll_));
-
+    current_state_.pitch_[0] = imu_pitch_;
+    // Get current zmp
+    Eigen::Vector3d CoM = Eigen::Vector3d(base2CoM * sin(imu_pitch_), -base2CoM * sin(imu_roll_), base2CoM * cos(imu_pitch_) * cos(imu_roll_));
+    Eigen::Vector3d accel = Eigen::Vector3d(accel_x, accel_y, 0.0);
+    // Eigen::Vector3d alpha = Eigen::Vector3d(filterd_imu_.angular_velocity.x - last_imu_.angular_velocity.x, 
+    // filterd_imu_.angular_velocity.y - last_imu_.angular_velocity.y, filterd_imu_.angular_velocity.z - last_imu_.angular_velocity.z);
     Eigen::Vector3d omega = Eigen::Vector3d(filterd_imu_.angular_velocity.x, filterd_imu_.angular_velocity.y, filterd_imu_.angular_velocity.z);
-    Eigen::Vector3d OG = Eigen::Vector3d(CoM_x, CoM_y, CoM_z);
-    Eigen::Vector3d aG = Eigen::Vector3d(filterd_imu_.linear_acceleration.x, filterd_imu_.linear_acceleration.y, filterd_imu_.linear_acceleration.z - gravity[2]);
     Eigen::Vector3d H_G = I_O * omega;
     Eigen::Vector3d H_Gdot = (H_G - last_HG) / dt_;
     last_HG = H_G;
-    Eigen::Vector3d M_O =OG.cross(mass * gravity) - OG.cross(mass * aG) - H_Gdot;
-    ZMP = z.cross(M_O) / (mass * (gravity - aG).dot(z));
+    last_imu_ = filterd_imu_;
+    Eigen::Vector3d ZMP = computeZMPfromModel(CoM, accel, H_Gdot);
     
     current_state_.zmp_x_[0] = ZMP.x();
     current_state_.zmp_y_[0] = ZMP.y();
@@ -512,10 +522,10 @@ void FullBodyMPPI::calc_true_ZMP()
 {
     std::vector<Eigen::Vector3d> contactForces;
 
+    std::cout << "====================" << std::endl;
     for(const auto& topic : force_sensor_topic_){
         contactForces.push_back(Eigen::Vector3d(force_sensor_data_[topic].wrench.force.x, force_sensor_data_[topic].wrench.force.y, force_sensor_data_[topic].wrench.force.z));
     }
-    
     Eigen::Vector3d n(0.0, 0.0, 1.0); //床面法線ベクトル
     Eigen::Vector3d sumF=Eigen::Vector3d::Zero();
     Eigen::Vector3d sumM=Eigen::Vector3d::Zero();
@@ -535,25 +545,24 @@ void FullBodyMPPI::calc_true_ZMP()
     Eigen::Vector3d numerator = n.cross(sumM);
     true_ZMP = numerator/denom;
 }
-Eigen::Vector3d FullBodyMPPI::computeZMPfromModel(Eigen::Vector3d r, Eigen::Vector3d aG, Eigen::Vector3d HOdot)
-{
-    Eigen::Vector3d gravity(0.0, 0.0, gravity[2]);
-    Eigen::Vector3d z(0.0, 0.0, 1.0);
-    double denom = mass * (gravity.dot(z) + aG.dot(z));
-    if(std::fabs(denom) < 1e-6){
-        std::cout << "denom is too small" << std::endl;
-        return Eigen::Vector3d::Zero();
-    }
-    Eigen::Vector3d mgCrossG = mass * gravity.cross(r);
-    Eigen::Vector3d numerator = z.cross(mgCrossG) + z.cross(HOdot);
-    return numerator / denom;
-}
 
-Eigen::Vector3d FullBodyMPPI::calc_HO(const Eigen::Vector3d V, const Eigen::Vector3d rO, const Eigen::Vector3d omega)
+// Eigen::Vector3d FullBodyMPPI::computeZMPfromModel(Eigen::Vector3d CoM, Eigen::Vector3d accel, Eigen::Vector3d alpha)
+// {
+//     Eigen::Vector3d z(0.0, 0.0, 1.0);
+//     double denom = mass * (g + accel.dot(z));
+//     Eigen::Vector3d numertator = mass * g * z.cross(CoM).cross(z) + z.cross(I_O * alpha);
+//     if(std::fabs(denom) < 1e-6){
+//         return Eigen::Vector3d::Zero();
+//     }
+//     // std::cout << "zmp 質点: " << 100*CoM.x() - CoM.z()*accel.x() / g << " " << 100*CoM.y() + CoM.z()*accel.y() / g << std::endl;
+//     return numertator / denom;
+// }
+Eigen::Vector3d FullBodyMPPI::computeZMPfromModel(Eigen::Vector3d CoM, Eigen::Vector3d accel, Eigen::Vector3d HGdot)
 {
-    Eigen::Vector3d HO;
-    HO = rO.cross(mass*V) + I_O*omega;
-    return HO;
+    Eigen::Vector3d z(0.0, 0.0, 1.0);
+    Eigen::Vector3d M_O =CoM.cross(mass * gravity_) - CoM.cross(mass * accel) - HGdot;
+    Eigen::Vector3d ZMP = z.cross(M_O) / (mass * (gravity_ - accel).dot(z));
+    return ZMP;
 }
 
 void FullBodyMPPI::run()
@@ -567,8 +576,8 @@ void FullBodyMPPI::run()
         {
             if(first_roop_)
             {
+                last_imu_ = filterd_imu_;
                 last_time_ = ros::Time::now().toSec();
-                last_HG = Eigen::Vector3d(0, 0, 0);
                 first_roop_ = false;
             }
             else{
@@ -577,7 +586,7 @@ void FullBodyMPPI::run()
                 calc_true_ZMP();
                 // 0. Get Current State
                 get_CurrentState();
-                std::cout << "====================" << std::endl;
+                // std::cout << "====================" << std::endl;
                 std::cout << std::fixed << std::setprecision(2);
                 std::cout << "zmp_x: " << current_state_.zmp_x_[0]*100 << " zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
                 std::cout << "true_zmp_x: " << true_ZMP.x()*100 << " true_zmp_y: " << true_ZMP.y()*100 << std::endl;
@@ -596,8 +605,8 @@ void FullBodyMPPI::run()
                 // 4. Determine optimal solution
                 determine_OptimalSolution();
                 // 5. Publish cmd_pos and cmd_vel
-                // publish_CmdVel();
-                // publish_CmdPos();
+                publish_CmdVel();
+                publish_CmdPos();
             }
         }
         ros::spinOnce();

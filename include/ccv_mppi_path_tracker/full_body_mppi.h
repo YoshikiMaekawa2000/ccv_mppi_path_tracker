@@ -25,33 +25,41 @@
 #include <Eigen/Dense>
 #include <geometry_msgs/WrenchStamped.h>
 
-Eigen::Vector3d gravity(0.0, 0.0, -9.8);
+Eigen::Vector3d gravity_(0.0, 0.0, -9.8);
+const tf::Vector3 gravity(0.0, 0.0, -9.8);
+const double g=-9.81;
 
 class RobotStates{
     public:
         RobotStates(size_t horizon){
-            size_t i_horizon;
-            if(horizon >= 2) i_horizon = horizon - 1;
-            else i_horizon = horizon;
-
+            size_t input_h = horizon;
+            size_t variable_h = horizon;
+            if(horizon >= 3){
+                input_h = horizon-1;
+                variable_h = horizon-2;
+            }
+            //states
             x_.resize(horizon);
             y_.resize(horizon);
             yaw_.resize(horizon);
-            zmp_x_.resize(horizon);
-            zmp_y_.resize(horizon);
             roll_.resize(horizon);
             pitch_.resize(horizon);
-            v_.resize(i_horizon);
-            w_.resize(i_horizon);
-            direction_.resize(i_horizon);
-            roll_v_.resize(i_horizon);
-            pitch_v_.resize(i_horizon);
+            //input
+            v_.resize(input_h);
+            w_.resize(input_h);
+            direction_.resize(input_h);
+            roll_v_.resize(input_h);
+            pitch_v_.resize(input_h);
+            //variables for calc ZMP
+            zmp_x_.resize(variable_h);
+            zmp_y_.resize(variable_h);  
             
         }
         RobotStates(){
         }
-        std::vector<double> x_, y_, yaw_, roll_, pitch_, zmp_x_, zmp_y_; //state
+        std::vector<double> x_, y_, yaw_, roll_, pitch_; //states
         std::vector<double> v_, w_, direction_, roll_v_, pitch_v_;  //input
+        std::vector<double> zmp_x_, zmp_y_; //zmp
 };
 
 
@@ -85,9 +93,12 @@ private:
     nav_msgs::Odometry odom_;
     sensor_msgs::JointState joint_state_;
     gazebo_msgs::LinkStates link_states_;
-    tf::Quaternion imu_;
+    tf::Quaternion imu_orientation_;
+    tf::Vector3 accel_base;
     double imu_roll_, imu_pitch_, imu_yaw_;
+    double accel_x, accel_y, accel_z;
     sensor_msgs::Imu filterd_imu_;
+    sensor_msgs::Imu last_imu_;
 
     std::vector<std::string> force_sensor_topic_;
     std::vector<ros::Subscriber> sub_force_sensor_;
@@ -106,7 +117,7 @@ private:
     geometry_msgs::TransformStamped transform_msg_;
 
     void calc_true_ZMP();
-    Eigen::Vector3d computeZMPfromModel(Eigen::Vector3d r, Eigen::Vector3d aG, Eigen::Vector3d HOdot);
+    Eigen::Vector3d computeZMPfromModel(Eigen::Vector3d r, Eigen::Vector3d aG, Eigen::Vector3d alpha);
 
     // void get_CurrentState(double drive_accel, double roll_accel, double pitch_accel);
     void get_CurrentState();
@@ -139,11 +150,9 @@ private:
 
     std::string WORLD_FRAME;
     std::string ROBOT_FRAME;
-    std::string CoM_FRAME;
+    std::string IMU_FRAME;
     std::string RIGHT_WHEEL = "right_wheel_link";
     std::string LEFT_WHEEL = "left_wheel_link";
-
-    double CoM_x, CoM_y, CoM_z;
 
     // MPPI param
     int horizon_;
@@ -184,24 +193,24 @@ private:
     double tread_;
     double wheel_radius_;
     double weight_;
-    double base2CoM; //回転中心から重心までの距離
+    double base2CoM;
     double ground2base; //回転中心から地面までの高さ．
 
-    double CoM_height = 0.60;
     double upper_body_radius = 0.11;
+    double upper_body_height = 0.8075;
+    double upper_body_depth = 0.208;
+    double upper_body_width = 0.208;
     double mass = 60.0;
-    double alpha = 0.3;
+    double alpha = 0.3; //low pass filter
+    
 
     std::vector<Eigen::Vector3d> contactPositions;
     Eigen::Vector3d base2front_r_caster, base2front_l_caster, base2back_r_caster, base2back_l_caster;
     Eigen::Vector3d base2wheel_r, base2wheel_l;
-
-    Eigen::Vector3d last_HG;
-    Eigen::Vector3d last_v;
-    Eigen::Vector3d current_v;
     Eigen::Matrix3d I_O;
-    Eigen::Vector3d ZMP;
     Eigen::Vector3d z=Eigen::Vector3d(0.0, 0.0, 1.0);
+    Eigen::Vector3d last_HG;
+    // Eigen::Vector3d H_G;
 
     Eigen::Vector3d true_ZMP;
     double direction_input;
