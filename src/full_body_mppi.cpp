@@ -7,7 +7,7 @@ FullBodyMPPI::FullBodyMPPI()
 {
     nh_.param("dt", dt_, 0.1);
     nh_.param("horizon", horizon_, 15);
-    nh_.param("num_samples", num_samples_, 1000);
+    nh_.param("num_samples", num_samples_, 10000);
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
     nh_.param("v_max", v_max_, 3.0);
@@ -34,6 +34,12 @@ FullBodyMPPI::FullBodyMPPI()
     nh_.param("path_weight", path_weight_, 1.0);
     nh_.param("v_weight", v_weight_, 1.0);
     nh_.param("zmp_weight", zmp_weight_, 1.0);
+    nh_.param("roll_v_weight", roll_v_weight_, 1.0);
+    nh_.param("off", off_, false);
+    if(off_) {
+        zmp_weight_ = 0.0;
+        roll_v_weight_ = 0.0;
+    }
 
     //gazeboでだけ使用
     force_sensor_topic_ = {
@@ -63,6 +69,10 @@ FullBodyMPPI::FullBodyMPPI()
     for (int i = 0; i < num_samples_; i++) sample[i] = RobotStates(horizon_);
     optimal_solution_ = RobotStates(horizon_);
     current_state_ = RobotStates(1);
+    current_state_.zmp_x_[0] = 0.0;
+    current_state_.zmp_y_[0] = 0.0;
+
+    true_ZMP = Eigen::Vector3d::Zero();
 
     x_ref_.resize(horizon_);
     y_ref_.resize(horizon_);
@@ -95,6 +105,7 @@ FullBodyMPPI::FullBodyMPPI()
     pub_optimal_path_ = nh_.advertise<nav_msgs::Path>("/ccv_mppi_path_tracker/optimal_path", 1);
     pub_zmp_y_ = nh_.advertise<std_msgs::Float64>("/ccv_mppi_path_tracker/zmp_y", 1);
     pub_drive_accel_ = nh_.advertise<std_msgs::Float64>("/ccv_mppi_path_tracker/drive_accel", 1);
+    pub_true_zmp_ = nh_.advertise<std_msgs::Float64>("/ccv_mppi_path_tracker/true_zmp", 1);
 }
 void FullBodyMPPI::wrenchCallback(const geometry_msgs::WrenchStamped::ConstPtr &msg, const std::string &sensor_topic)
 {
@@ -173,12 +184,18 @@ void FullBodyMPPI::linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr &m
 void FullBodyMPPI::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
 {
     // ノイズ除去
-    filterd_imu_.angular_velocity.x = alpha * msg->angular_velocity.x + (1 - alpha) * filterd_imu_.angular_velocity.x;
-    filterd_imu_.angular_velocity.y = alpha * msg->angular_velocity.y + (1 - alpha) * filterd_imu_.angular_velocity.y;
-    filterd_imu_.angular_velocity.z = alpha * msg->angular_velocity.z + (1 - alpha) * filterd_imu_.angular_velocity.z;
-    filterd_imu_.linear_acceleration.x = alpha * msg->linear_acceleration.x + (1 - alpha) * filterd_imu_.linear_acceleration.x;
-    filterd_imu_.linear_acceleration.y = alpha * msg->linear_acceleration.y + (1 - alpha) * filterd_imu_.linear_acceleration.y;
-    filterd_imu_.linear_acceleration.z = alpha * msg->linear_acceleration.z + (1 - alpha) * filterd_imu_.linear_acceleration.z;
+    // filterd_imu_.angular_velocity.x = alpha * msg->angular_velocity.x + (1 - alpha) * filterd_imu_.angular_velocity.x;
+    // filterd_imu_.angular_velocity.y = alpha * msg->angular_velocity.y + (1 - alpha) * filterd_imu_.angular_velocity.y;
+    // filterd_imu_.angular_velocity.z = alpha * msg->angular_velocity.z + (1 - alpha) * filterd_imu_.angular_velocity.z;
+    // filterd_imu_.linear_acceleration.x = alpha * msg->linear_acceleration.x + (1 - alpha) * filterd_imu_.linear_acceleration.x;
+    // filterd_imu_.linear_acceleration.y = alpha * msg->linear_acceleration.y + (1 - alpha) * filterd_imu_.linear_acceleration.y;
+    // filterd_imu_.linear_acceleration.z = alpha * msg->linear_acceleration.z + (1 - alpha) * filterd_imu_.linear_acceleration.z;
+    filterd_imu_.angular_velocity.x = msg->angular_velocity.x;
+    filterd_imu_.angular_velocity.y = msg->angular_velocity.y;
+    filterd_imu_.angular_velocity.z = msg->angular_velocity.z;
+    filterd_imu_.linear_acceleration.x = msg->linear_acceleration.x;
+    filterd_imu_.linear_acceleration.y = msg->linear_acceleration.y;
+    filterd_imu_.linear_acceleration.z = msg->linear_acceleration.z;
     // IMUリンクのworld座標での傾きを取得
     imu_orientation_ = tf::Quaternion(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
     tf::Matrix3x3(imu_orientation_).getRPY(imu_roll_, imu_pitch_, imu_yaw_);
@@ -228,12 +245,9 @@ void FullBodyMPPI::publish_CmdPos()
     }
 
     cmd_pos_.roll = current_state_.roll_[0] + optimal_solution_.roll_v_[0] * dt_;
-    // cmd_pos_.roll += optimal_solution_.roll_v_[0] * dt_;
-    // cmd_pos_.roll = 0.0;
     if (cmd_pos_.roll > roll_max_) cmd_pos_.roll = roll_max_;
     else if (cmd_pos_.roll < roll_min_) cmd_pos_.roll = roll_min_;
-    // cmd_pos_.fore = current_state_.pitch_[0] - optimal_solution_.pitch_v_[0] * dt_;
-    // cmd_pos_.rear = current_state_.pitch_[0] + optimal_solution_.pitch_v_[0] * dt_;
+    if(off_) cmd_pos_.roll = 0.0;
     cmd_pos_.fore = pitch_offset_;
     cmd_pos_.rear = pitch_offset_;
     pub_cmd_pos_.publish(cmd_pos_);
@@ -375,11 +389,10 @@ double FullBodyMPPI::calc_Cost(RobotStates sample)
     {
         cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         cost += v_weight_ * std::abs(v_ref_ - sample.v_[t]);
-        cost += 2 * zmp_weight_ * abs(sample.zmp_y_[t]);
-        cost += 0.1*(sample.roll_v_[t+1] - sample.roll_v_[t]);
-        // cost += zmp_weight_ * abs(sample.zmp_x_[t]);
-        // cost += abs(sample.roll_v_[t] - sample.roll_v_[t-1]);
-        // cost += abs(sample.pitch_v_[t] * 180/M_PI);
+
+        cost += zmp_weight_ * abs(sample.zmp_y_[t]);
+        cost += roll_v_weight_*abs(sample.roll_v_[t+1] - sample.roll_v_[t]);
+    
     }
     return cost;
 }
@@ -389,8 +402,10 @@ void FullBodyMPPI::calc_Weights()
     calc_RefPath();
     double sum = 0.0;
     double sum_cost = 0.0;
+    double min_zmp_y = 100.0;
     for(int i=0; i<num_samples_; i++)
     {
+        if(abs(sample[i].zmp_y_[0]) < min_zmp_y) min_zmp_y = sample[i].zmp_y_[0];
         double cost = calc_Cost(sample[i]);
         sum_cost += cost;
         weights_[i] = exp(-cost / lambda_);
@@ -398,6 +413,7 @@ void FullBodyMPPI::calc_Weights()
     }
     // std::cout << "ave cost: " << sum_cost / num_samples_ / (horizon_-1) << std::endl;
     for(int i=0; i<num_samples_; i++) weights_[i] /= sum;
+    std::cout << "min zmp_y: " << min_zmp_y*100 << std::endl;
 }
 
 void FullBodyMPPI::predict_NextState(RobotStates &sample, int t)
@@ -425,9 +441,6 @@ void FullBodyMPPI::predict_States()
         }
         for(int t=0; t<horizon_-2; t++){
             double drive_accel = (sample[i].v_[t+1] - sample[i].v_[t]) / dt_;
-            // double roll_accel = (sample[i].roll_v_[t+1] - sample[i].roll_v_[t]) / dt_;
-            // double pitch_accel = (sample[i].pitch_v_[t+1] - sample[i].pitch_v_[t]) / dt_;
-            // double yaw_accel = (sample[i].w_[t+1] - sample[i].w_[t]) / dt_;
 
             double ac = sample[i].v_[t] * sample[i].w_[t]; //向心加速度(速度方向の加速度と直交)
             double drive_accel_x = drive_accel * cos(sample[i].direction_[t]) - ac*sin(sample[i].direction_[t]); //ロボット座標系x軸(worldのyaw)方向の加速度
@@ -505,8 +518,6 @@ void FullBodyMPPI::get_CurrentState()
     // Get current zmp
     Eigen::Vector3d CoM = Eigen::Vector3d(base2CoM * sin(imu_pitch_), -base2CoM * sin(imu_roll_), base2CoM * cos(imu_pitch_) * cos(imu_roll_));
     Eigen::Vector3d accel = Eigen::Vector3d(accel_x, accel_y, 0.0);
-    // Eigen::Vector3d alpha = Eigen::Vector3d(filterd_imu_.angular_velocity.x - last_imu_.angular_velocity.x, 
-    // filterd_imu_.angular_velocity.y - last_imu_.angular_velocity.y, filterd_imu_.angular_velocity.z - last_imu_.angular_velocity.z);
     Eigen::Vector3d omega = Eigen::Vector3d(filterd_imu_.angular_velocity.x, filterd_imu_.angular_velocity.y, filterd_imu_.angular_velocity.z);
     Eigen::Vector3d H_G = I_O * omega;
     Eigen::Vector3d H_Gdot = (H_G - last_HG) / dt_;
@@ -514,8 +525,10 @@ void FullBodyMPPI::get_CurrentState()
     last_imu_ = filterd_imu_;
     Eigen::Vector3d ZMP = computeZMPfromModel(CoM, accel, H_Gdot);
     
-    current_state_.zmp_x_[0] = ZMP.x();
-    current_state_.zmp_y_[0] = ZMP.y();
+    // current_state_.zmp_x_[0] = ZMP.x();
+    // current_state_.zmp_y_[0] = ZMP.y();
+    current_state_.zmp_x_[0] = alpha*ZMP.x() + (1-alpha)*current_state_.zmp_x_[0];
+    current_state_.zmp_y_[0] = alpha*ZMP.y() + (1-alpha)*current_state_.zmp_y_[0];
 }
 
 void FullBodyMPPI::calc_true_ZMP()
@@ -543,20 +556,9 @@ void FullBodyMPPI::calc_true_ZMP()
         return;
     }
     Eigen::Vector3d numerator = n.cross(sumM);
-    true_ZMP = numerator/denom;
+    // true_ZMP = numerator/denom;
+    true_ZMP = alpha*(numerator/denom) + (1-alpha)*true_ZMP;
 }
-
-// Eigen::Vector3d FullBodyMPPI::computeZMPfromModel(Eigen::Vector3d CoM, Eigen::Vector3d accel, Eigen::Vector3d alpha)
-// {
-//     Eigen::Vector3d z(0.0, 0.0, 1.0);
-//     double denom = mass * (g + accel.dot(z));
-//     Eigen::Vector3d numertator = mass * g * z.cross(CoM).cross(z) + z.cross(I_O * alpha);
-//     if(std::fabs(denom) < 1e-6){
-//         return Eigen::Vector3d::Zero();
-//     }
-//     // std::cout << "zmp 質点: " << 100*CoM.x() - CoM.z()*accel.x() / g << " " << 100*CoM.y() + CoM.z()*accel.y() / g << std::endl;
-//     return numertator / denom;
-// }
 Eigen::Vector3d FullBodyMPPI::computeZMPfromModel(Eigen::Vector3d CoM, Eigen::Vector3d accel, Eigen::Vector3d HGdot)
 {
     Eigen::Vector3d z(0.0, 0.0, 1.0);
@@ -586,13 +588,14 @@ void FullBodyMPPI::run()
                 calc_true_ZMP();
                 // 0. Get Current State
                 get_CurrentState();
-                // std::cout << "====================" << std::endl;
                 std::cout << std::fixed << std::setprecision(2);
                 std::cout << "zmp_x: " << current_state_.zmp_x_[0]*100 << " zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
                 std::cout << "true_zmp_x: " << true_ZMP.x()*100 << " true_zmp_y: " << true_ZMP.y()*100 << std::endl;
                 // ===================================================================
-                // zmp_y_.data = current_state_.zmp_y_[0];
-                // pub_zmp_y_.publish(zmp_y_);
+                zmp_y_.data = current_state_.zmp_y_[0];
+                pub_zmp_y_.publish(zmp_y_);
+                true_zmp_.data = true_ZMP.y();
+                pub_true_zmp_.publish(true_zmp_);
                 // drive_accel_.data = drive_accel;
                 // pub_drive_accel_.publish(drive_accel_);
                 // ===================================================================

@@ -12,6 +12,7 @@ import subprocess
 import csv
 import numpy as np
 from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64
 
 
 class RecordState:
@@ -23,6 +24,8 @@ class RecordState:
         self.sub_dynamixel_state = rospy.Subscriber('/local/cmd_pos', CmdPoseByRadian, self.dynamixelstate_callback)
         self.sub_cmd_vel = rospy.Subscriber('/sq2_ccv/diff_drive_steering_controller/cmd_vel', Twist, self.cmd_vel_callback)
         self.sub_joint_state = rospy.Subscriber('/sq2_ccv/joint_states', JointState, self.joint_state_callback)
+        self.sub_true_zmp = rospy.Subscriber("/ccv_mppi_path_tracker/true_zmp",  Float64, self.true_zmp_callback)
+        self.sub_zmp_y = rospy.Subscriber("/ccv_mppi_path_tracker/zmp_y", Float64, self.zmp_y_callback)
         
         #記録するデータ：x, y(真値とtf値)， v,δ_r, δ_l(真値と指令値)，目標軌道
         self.path = Path()
@@ -33,6 +36,8 @@ class RecordState:
         self.tf_buffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tf_buffer)
         self.joint_state = JointState()
+        self.true_zmp = Float64()
+        self.zmp_y = Float64()
 
         self.state_file_name = ""
         self.csv_file = None
@@ -61,12 +66,19 @@ class RecordState:
     def joint_state_callback(self, msg):
         self.joint_state = msg
         self.joint_state_flag = True
+    def true_zmp_callback(self, msg):
+        self.true_zmp = msg
+        self.true_zmp_flag = True
+    def zmp_y_callback(self, msg):
+        self.zmp_y = msg
+        self.zmp_y_flag = True
 ##############################################
     def get_node(self):
         nodes = subprocess.check_output(["rosnode", "list"]).splitlines()
         pure_pursuit = "/pure_pursuit_steering"
         mppi = "/steering_diff_drive_mppi"
         d_mppi = "/diff_drive_mppi"
+        full = "/full_body_mppi"
         for node in nodes:
             node = node.decode("utf-8")
             if(node == pure_pursuit):
@@ -75,6 +87,8 @@ class RecordState:
                 return "../log/mppi/"
             elif(node == d_mppi):
                 return "../log/mppi/"
+            elif(node == full):
+                return "../log/full_body/"
 
     def get_true_pose(self):
         for i in range(len(self.state.name)):
@@ -95,11 +109,9 @@ class RecordState:
                 steer_l = self.joint_state.position[i]
         return steer_r, steer_l
 
-
-
     def record_path(self):
         for i, pose in enumerate(self.path.poses):
-            self.csv_writer.writerow(["", "", "", "", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
+            self.csv_writer.writerow(["", "", "", "", "", "", "", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
         self.csv_file.close()
             
         
@@ -111,7 +123,7 @@ class RecordState:
         self.csv_file = open(self.file_name, "w", newline="")
 
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["time", "x", "y", "x_tf", "y_tf", "v", "cmd_v", "steer_r", "steer_l", "path_x", "path_y"])
+        self.csv_writer.writerow(["time", "x", "y", "x_tf", "y_tf", "v", "cmd_v", "steer_r", "steer_l","roll", "true_zmp", "zmp_y", "path_x", "path_y"])
         start = rospy.get_time()
         while not rospy.is_shutdown():
             # if(tf_x < 15):
@@ -122,7 +134,7 @@ class RecordState:
                 if(self.state.twist[1].linear.x < 0):
                     true_v = -true_v
                 cmd_v = self.cmd_vel.linear.x
-                self.csv_writer.writerow([rospy.get_time() - start, true_x, true_y, tf_x, tf_y, true_v, cmd_v, steer_r, steer_l, "", ""])
+                self.csv_writer.writerow([rospy.get_time() - start, true_x, true_y, tf_x, tf_y, true_v, cmd_v, steer_r, steer_l, self.dynamixel_state.roll, self.true_zmp.data, self.zmp_y.data, "", ""])
                 # self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
                 rate.sleep()
             # else:

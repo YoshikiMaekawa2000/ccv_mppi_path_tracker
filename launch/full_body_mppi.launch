@@ -9,7 +9,9 @@
     <!-- <param name="v_min" value="-1.6"/> -->
     <param name="path_weight" value="2.0"/>
     <param name="v_weight" value="1.0"/>
-    <param name="zmp_weight" value="2.0"/>
+    <param name="zmp_weight" value="4.0"/>
+    <param name="roll_v_weight" value="0.5"/>
+    <!-- <param name="off" value="true"/> -->
     <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
     <remap from="/odom" to="/sq2_ccv/diff_drive_steering_controller/odom"/>
     <!-- <param name="steer_max" value="30.0"/> -->

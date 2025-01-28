@@ -106,6 +106,8 @@ private:
 
     ros::Publisher pub_zmp_y_;
     std_msgs::Float64 zmp_y_;
+    ros::Publisher pub_true_zmp_;
+    std_msgs::Float64 true_zmp_;
 
     ros::Publisher pub_drive_accel_;
     std_msgs::Float64 drive_accel_;
@@ -166,6 +168,8 @@ private:
     double path_weight_;
     double v_weight_;
     double zmp_weight_;
+    double roll_v_weight_;
+    bool off_;
 
     std::vector<RobotStates> sample;
     RobotStates optimal_solution_;
@@ -201,6 +205,7 @@ private:
     double upper_body_depth = 0.208;
     double upper_body_width = 0.208;
     double mass = 60.0;
+    // double alpha = 0.5; //low pass filter
     double alpha = 0.3; //low pass filter
     
 
@@ -209,7 +214,7 @@ private:
     Eigen::Vector3d base2wheel_r, base2wheel_l;
     Eigen::Matrix3d I_O;
     Eigen::Vector3d z=Eigen::Vector3d(0.0, 0.0, 1.0);
-    Eigen::Vector3d last_HG;
+    Eigen::Vector3d last_HG=Eigen::Vector3d::Zero();
     // Eigen::Vector3d H_G;
 
     Eigen::Vector3d true_ZMP;
