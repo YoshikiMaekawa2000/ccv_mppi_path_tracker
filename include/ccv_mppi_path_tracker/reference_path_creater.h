@@ -18,10 +18,13 @@ private:
     double A1_, A2_, A3_;
     double omega1_, omega2_, omega3_;
     double delta1_, delta2_, delta3_;
+    double R_;
     double hz_;
     double resolution_;
     double course_length_;
     double init_x_, init_y_, init_yaw_;
+    bool sin_, circle_;
+    double theta_;
     std::string world_frame_;
 };
 

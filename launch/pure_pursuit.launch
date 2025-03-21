@@ -3,31 +3,40 @@
 
     <node name="reference_path_creator" pkg="ccv_mppi_path_tracker" type="reference_path_creator" output="screen">
     <param name="world_frame_id" value="odom"/>
-    <param name="course_length" value="20"/>
-    <param name="A1" value="1.5"/>
-    <param name="omega1" value="0.127"/>
+    <param name="course_length" value="10"/>
+    <!-- <param name="course_length" value="100"/> -->
+    <param name="A1" value="1.0"/>
+    <param name="omega1" value="0.25"/>
     <!-- <param name="omega1" value="0.254"/> -->
     <!-- <param name="omega1" value="0.381"/> -->
     <remap from="/reference_path_creater/path" to="/reference_path"/>
     <param name="delta1" value="0.0"/>
     <param name="delta2" value="0.0"/>
     <param name="delta3" value="0.0"/>
+    <param name="sin" value="true"/>
+    <param name="init_x" value="0.0"/>
     </node>
 
     <!-- <include file="$(find ccv_mppi_path_tracker)/launch/reference_path_creator.launch"/> -->
 
     <node name="pure_pursuit_steering" pkg="ccv_pure_pursuit_steering" type="ccv_pure_pursuit_steering" output="screen">
-        <param name="max_target_velocity" value="0.4"/>
-        <param name="max_steering_angle" value="0.0"/>
-        <!-- <param name="max_steering_angle" value="30.0"/> -->
+        <param name="max_target_velocity" value="2.0"/>
+        <param name="max_steering_angle" value="30.0"/>
+        <!-- <param name="max_steering_angle" value="0.0"/> -->
         <param name="hz" value="50"/>
+        <!-- <param name="L1" value="1.5"/> -->
+        <!-- <param name="L2" value="0.5"/> -->
         <param name="L1" value="1.5"/>
-        <param name="L2" value="1.0"/>
+        <param name="L2" value="0.75"/>
         <param name="goal_border" value="0.5"/>
         <param name="read_marker" value="false"/>
         <param name="world_frame_id" value="odom"/>
         <param name="robot_frame_id" value="base_link"/>
+        <!-- <param name="use_gazebo_pose" value="true"/> -->
         <remap from="/predicted_path" to="/reference_path"/>
+        <param name="tread" value="0.501"/>
+
+        <!-- <param name="init_yaw" value="0.3"/> -->
 
         <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
     </node>
@@ -39,5 +48,5 @@
     <node pkg="ccv_mppi_path_tracker" type="record_state.py" name="record_state" cwd="node" output="screen"/>
 
 
-    <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/>
+    <!-- <node name="steering_angle_publisher" pkg="ccv_pure_pursuit_steering" type="steering_angle_publisher"/> -->
 </launch>

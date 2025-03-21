@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DROSCONSOLE_BACKEND_LOG4CXX -DROS_BUILD_SHARED_LIBS=1 -DROS_PACKAGE_NAME=\"ccv_mppi_path_tracker\"
 
-CXX_INCLUDES = -I/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/include -I/home/amsl/catkin_ws/devel/.private/ccv_dynamixel_msgs/include -I/opt/ros/noetic/include -I/opt/ros/noetic/share/xmlrpcpp/cmake/../../../include/xmlrpcpp
+CXX_INCLUDES = -I/home/amsl/catkin_ws/src/ccv_mppi_path_tracker/include -I/home/amsl/catkin_ws/devel/.private/ccv_dynamixel_msgs/include -I/home/amsl/catkin_ws/devel/.private/sq2_ccv_roll_pitch_msgs/include -I/opt/ros/noetic/include -I/opt/ros/noetic/share/xmlrpcpp/cmake/../../../include/xmlrpcpp
 
 CXX_FLAGS = -g
 

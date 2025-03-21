@@ -49,10 +49,10 @@ for dr in dr_values:
 j = 0
 k = 0
 for V, omega in points_else:
-    plt.scatter(V, omega, color='r', s=1, label="steering robot" if j == 0 else "")
+    plt.scatter(V, omega, color='r', s=1, label="With Steering" if j == 0 else "")
     j+=1
 for V, omega in points_zero:
-    plt.scatter(V, omega, color='b', s=1, label="NOT steering robot" if k == 0 else "")
+    plt.scatter(V, omega, color='b', s=1, label="Without Steering" if k == 0 else "")
     k+=1
 
 

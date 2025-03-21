@@ -529,6 +529,9 @@ rostime_DIR:PATH=/opt/ros/noetic/share/rostime/cmake
 //The directory containing a CMake configuration file for sensor_msgs.
 sensor_msgs_DIR:PATH=/opt/ros/noetic/share/sensor_msgs/cmake
 
+//The directory containing a CMake configuration file for sq2_ccv_roll_pitch_msgs.
+sq2_ccv_roll_pitch_msgs_DIR:PATH=/home/amsl/catkin_ws/devel/share/sq2_ccv_roll_pitch_msgs/cmake
+
 //The directory containing a CMake configuration file for std_msgs.
 std_msgs_DIR:PATH=/opt/ros/noetic/share/std_msgs/cmake
 

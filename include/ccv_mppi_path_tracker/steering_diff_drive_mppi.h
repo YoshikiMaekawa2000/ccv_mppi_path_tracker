@@ -45,6 +45,7 @@ void RobotStates::init(int horizon)
         y_[i] = 0.0;
         yaw_[i] = 0.0;
         v_[i] = 0.0;
+        w_[i] = 0.0;
         steer_[i] = 0.0;
     }
     x_[horizon-1] = 0.0;

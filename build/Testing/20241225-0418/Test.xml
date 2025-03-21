@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Site BuildName="(empty)"
+	BuildStamp="20241225-0418-Experimental"
+	Name="irohasu"
+	Generator="ctest-3.26.3"
+	CompilerName="/usr/bin/c++"
+	CompilerVersion="9.4.0"
+	OSName="Linux"
+	Hostname="irohasu"
+	OSRelease="5.15.0-126-generic"
+	OSVersion="#136~20.04.1-Ubuntu SMP Thu Nov 14 16:38:05 UTC 2024"
+	OSPlatform="x86_64"
+	Is64Bits="1"
+	VendorString="GenuineIntel"
+	VendorID="Intel Corporation"
+	FamilyID="6"
+	ModelID="183"
+	ProcessorCacheSize="36864"
+	NumberOfLogicalCPU="32"
+	NumberOfPhysicalCPU="24"
+	TotalVirtualMemory="2047"
+	TotalPhysicalMemory="31917"
+	LogicalProcessorsPerPhysical="1"
+	ProcessorClockFrequency="5375.34"
+	>
+	<Testing>
+		<StartDateTime>Dec 25 13:20 JST</StartDateTime>
+		<StartTestTime>1735100447</StartTestTime>
+		<TestList/>
+		<EndDateTime>Dec 25 13:20 JST</EndDateTime>
+		<EndTestTime>1735100447</EndTestTime>
+		<ElapsedMinutes>0</ElapsedMinutes>
+	</Testing>
+</Site>
