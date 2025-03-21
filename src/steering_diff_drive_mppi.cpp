@@ -17,7 +17,7 @@ SteeringDiffDriveMPPI::SteeringDiffDriveMPPI()
 
     nh_.param("dt", dt_, 0.1);
     nh_.param("horizon", horizon_, 15);
-    nh_.param("num_samples", num_samples_, 1000.0);
+    nh_.param("num_samples", num_samples_, 10000.0);
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
     nh_.param("v_max", v_max_, 1.2);
@@ -217,10 +217,9 @@ double SteeringDiffDriveMPPI::calc_Cost(RobotStates sample)
         double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         // double dx = sample.x_[t] - x_ref_[t];
         // double dy = sample.y_[t] - y_ref_[t];
-        double v_cost = v_ref_ - sample.v_[t];
-        v_cost = std::abs(v_cost);
+        double v_cost = (sample.v_[t] - v_ref_)*(sample.v_[t] - v_ref_);
         // cost += path_weight_* (distance*distance) + v_weight_*(v_cost*v_cost);
-        cost += path_weight_ * distance + v_weight_ * v_cost;
+        cost += path_weight_ * distance*distance + v_weight_ * v_cost;
         // cost += dx*dx + dy*dy;
     }
     return cost;

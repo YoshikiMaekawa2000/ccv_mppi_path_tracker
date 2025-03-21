@@ -16,6 +16,7 @@
 #include <sq2_ccv_roll_pitch_msgs/RollPitch.h>
 #include <std_msgs/Float64.h>
 #include <gazebo_msgs/LinkStates.h>
+#include <gazebo_msgs/ModelStates.h>
 #include <sensor_msgs/Imu.h>
 #include <iostream>
 #include <fstream>
@@ -24,6 +25,7 @@
 #include <gazebo_msgs/GetLinkState.h>
 #include <Eigen/Dense>
 #include <geometry_msgs/WrenchStamped.h>
+
 
 Eigen::Vector3d gravity_(0.0, 0.0, -9.8);
 const tf::Vector3 gravity(0.0, 0.0, -9.8);
@@ -88,11 +90,13 @@ private:
     ros::Subscriber sub_joint_state_;
     ros::Subscriber sub_link_states_;
     ros::Subscriber sub_imu_;
+    ros::Subscriber sub_gazebo_states_;
     // ros::Subscriber sub_wrench_;
     nav_msgs::Path path_;
     nav_msgs::Odometry odom_;
     sensor_msgs::JointState joint_state_;
     gazebo_msgs::LinkStates link_states_;
+    geometry_msgs::PoseStamped gazebo_pose_;
     tf::Quaternion imu_orientation_;
     tf::Vector3 accel_base;
     double imu_roll_, imu_pitch_, imu_yaw_;
@@ -134,6 +138,7 @@ private:
     void jointStateCallback(const sensor_msgs::JointState::ConstPtr& msg);
     void linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr& msg);
     void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
+    void gazeboStatesCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
     void publish_CandidatePath();
     void publish_RefPath();
     Eigen::Vector3d calc_HO(Eigen::Vector3d V, Eigen::Vector3d r, Eigen::Vector3d omega);
@@ -169,7 +174,11 @@ private:
     double v_weight_;
     double zmp_weight_;
     double roll_v_weight_;
-    bool off_;
+    double back_weight_;
+    double yaw_weight_;
+    bool roll_off_;
+    bool steer_off_;
+    bool use_gazebo_pose_;
 
     std::vector<RobotStates> sample;
     RobotStates optimal_solution_;

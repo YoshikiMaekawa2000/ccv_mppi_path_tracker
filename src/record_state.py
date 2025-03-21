@@ -26,7 +26,7 @@ class RecordState:
         self.sub_joint_state = rospy.Subscriber('/sq2_ccv/joint_states', JointState, self.joint_state_callback)
         self.sub_true_zmp = rospy.Subscriber("/ccv_mppi_path_tracker/true_zmp",  Float64, self.true_zmp_callback)
         self.sub_zmp_y = rospy.Subscriber("/ccv_mppi_path_tracker/zmp_y", Float64, self.zmp_y_callback)
-        
+
         #記録するデータ：x, y(真値とtf値)， v,δ_r, δ_l(真値と指令値)，目標軌道
         self.path = Path()
         self.state = ModelStates()
@@ -45,7 +45,7 @@ class RecordState:
         self.csv_writer = None
 
         rospy.on_shutdown(self.record_path)
-        
+
 ##################callback関数##################
     def path_callback(self, msg):
         if(not self.path_flag):
@@ -82,18 +82,18 @@ class RecordState:
         for node in nodes:
             node = node.decode("utf-8")
             if(node == pure_pursuit):
-                return "../log/pure_pursuit/"
+                return "../log/pure_pursuit/robo_sym/"
             elif(node == mppi):
-                return "../log/mppi/"
+                return "../log/mppi/master_thesis/"
             elif(node == d_mppi):
-                return "../log/mppi/"
+                return "../log/mppi/master_thesis/"
             elif(node == full):
-                return "../log/full_body/"
+                return "../log/full_body/robo_sym/"
 
-    def get_true_pose(self):
+    def get_true_pose_and_omega(self):
         for i in range(len(self.state.name)):
             if(self.state.name[i] == "sq2_ccv"):
-                return self.state.pose[i].position.x, self.state.pose[i].position.y
+                return self.state.pose[i].position.x, self.state.pose[i].position.y, self.state.twist[i].angular.z, self.state.pose[i].orientation.z
     def get_tf_pose(self):
         try:
             transform = self.tf_buffer.lookup_transform("odom", "base_link", rospy.Time(0))
@@ -111,10 +111,10 @@ class RecordState:
 
     def record_path(self):
         for i, pose in enumerate(self.path.poses):
-            self.csv_writer.writerow(["", "", "", "", "", "", "", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
+            self.csv_writer.writerow(["", "", "", "", "", "", "", "", "", "", "", "", "", "", pose.pose.position.x, pose.pose.position.y])
         self.csv_file.close()
-            
-        
+
+
     def __call__(self):
         rate = rospy.Rate(10)
         date = datetime.datetime.now()
@@ -123,23 +123,23 @@ class RecordState:
         self.csv_file = open(self.file_name, "w", newline="")
 
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["time", "x", "y", "x_tf", "y_tf", "v", "cmd_v", "steer_r", "steer_l","roll", "true_zmp", "zmp_y", "path_x", "path_y"])
+        self.csv_writer.writerow(["time", "x", "y", "omega", "yaw", "x_tf", "y_tf", "v", "cmd_v", "steer_r", "steer_l","roll", "true_zmp", "zmp_y", "path_x", "path_y"])
         start = rospy.get_time()
         while not rospy.is_shutdown():
             # if(tf_x < 15):
-                true_x, true_y = self.get_true_pose()
+                true_x, true_y, true_omega, true_yaw= self.get_true_pose_and_omega()
                 tf_x, tf_y = self.get_tf_pose()
                 true_v = np.sqrt(self.state.twist[1].linear.x**2 + self.state.twist[1].linear.y**2)
                 steer_r, steer_l = self.get_steering_angle()
+                cmd_v = self.cmd_vel.linear.x
                 if(self.state.twist[1].linear.x < 0):
                     true_v = -true_v
-                cmd_v = self.cmd_vel.linear.x
-                self.csv_writer.writerow([rospy.get_time() - start, true_x, true_y, tf_x, tf_y, true_v, cmd_v, steer_r, steer_l, self.dynamixel_state.roll, self.true_zmp.data, self.zmp_y.data, "", ""])
+                self.csv_writer.writerow([rospy.get_time() - start, true_x, true_y, true_omega, true_yaw, tf_x, tf_y, true_v, cmd_v, steer_r, steer_l, self.dynamixel_state.roll, self.true_zmp.data, self.zmp_y.data, "", ""])
                 # self.csv_writer.writerow([true_x, true_y, tf_x, tf_y, true_v, cmd_v, "", ""])
                 rate.sleep()
             # else:
                 # pass
-            
+
 
 if __name__ == '__main__':
     try:
@@ -147,4 +147,4 @@ if __name__ == '__main__':
         record_state()
     except rospy.ROSInterruptException:
         pass
-        
+

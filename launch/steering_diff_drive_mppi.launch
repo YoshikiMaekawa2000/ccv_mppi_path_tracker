@@ -6,8 +6,9 @@
     <!-- <param name="mppi_path_tracker_config" textfile="$(find ccv_mppi_path_tracker)/config/diff_drive_mppi_path_tracker.yaml"/> -->
     <param name="v_ref" value="1.2"/>
     <param name="v_max" value="2.0"/>
-    <param name="path_weight" value="2.0"/>
+    <param name="path_weight" value="10.0"/>
     <param name="v_weight" value="1.0"/>
+    <param name="num_samples" value="1000"/>
     <remap from="/local/cmd_vel" to="/sq2_ccv/diff_drive_steering_controller/cmd_vel"/>
     <!-- <param name="steer_max" value="30.0"/> -->
     <!-- <param name="steer_min" value="-30.0"/> -->

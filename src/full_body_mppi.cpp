@@ -10,7 +10,7 @@ FullBodyMPPI::FullBodyMPPI()
     nh_.param("num_samples", num_samples_, 10000);
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
-    nh_.param("v_max", v_max_, 3.0);
+    nh_.param("v_max", v_max_, 1.2);
     nh_.param("w_max", w_max_, 1.0);
     nh_.param("steer_max", steer_max_, {30.0*M_PI/180.0});
     nh_.param("roll_max", roll_max_, {30.0*M_PI/180.0});
@@ -35,8 +35,12 @@ FullBodyMPPI::FullBodyMPPI()
     nh_.param("v_weight", v_weight_, 1.0);
     nh_.param("zmp_weight", zmp_weight_, 1.0);
     nh_.param("roll_v_weight", roll_v_weight_, 1.0);
-    nh_.param("off", off_, false);
-    if(off_) {
+    nh_.param("back_weight", back_weight_, 1.0);
+    nh_.param("yaw_weight", yaw_weight_, 1.0);
+    nh_.param("roll_off", roll_off_, false);
+    nh_.param("steer_off", steer_off_, false);
+    nh_.param("use_gazebo_pose", use_gazebo_pose_, true);
+    if(roll_off_) {
         zmp_weight_ = 0.0;
         roll_v_weight_ = 0.0;
     }
@@ -95,6 +99,7 @@ FullBodyMPPI::FullBodyMPPI()
     sub_joint_state_ = nh_.subscribe("/sq2_ccv/joint_states", 1, &FullBodyMPPI::jointStateCallback, this);
     sub_link_states_ = nh_.subscribe("/gazebo/link_states", 1, &FullBodyMPPI::linkStatesCallback, this);
     sub_imu_ = nh_.subscribe("/gazebo/imu/data", 1, &FullBodyMPPI::imuCallback, this);
+    sub_gazebo_states_ = nh_.subscribe("/gazebo/model_states", 1, &FullBodyMPPI::gazeboStatesCallback, this);
     for(const auto& topic : force_sensor_topic_){
         sub_force_sensor_.push_back(nh_.subscribe<geometry_msgs::WrenchStamped>(topic, 1, boost::bind(&FullBodyMPPI::wrenchCallback, this, _1, topic)));
     }
@@ -181,6 +186,16 @@ void FullBodyMPPI::linkStatesCallback(const gazebo_msgs::LinkStates::ConstPtr &m
     
 }
 
+void FullBodyMPPI::gazeboStatesCallback(const gazebo_msgs::ModelStates::ConstPtr &msg)
+{
+    for(int i=0; i<msg->name.size(); i++){
+        if(msg->name[i] == "sq2_ccv"){
+            gazebo_pose_.pose = msg->pose[i];
+            break;
+        }
+    }
+}
+
 void FullBodyMPPI::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
 {
     // ノイズ除去
@@ -215,7 +230,7 @@ void FullBodyMPPI::imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
     {
         ROS_ERROR("TF Error: %s", ex.what());
     }
-    //重力補償.正しいと思うコード実装しても挙動が間違ってた．これは正しくないコードだと思うけど挙動がそれっぽいからいったんこれ使う．
+    //重力補償.挙動がそれっぽいからいったんこれ使う．
     accel_x -= g*sin(imu_pitch_);
     // accel_z -= g*cos(imu_roll_)*sin(imu_pitch_);
     if(!imu_received_) imu_received_ = true;
@@ -230,24 +245,30 @@ void FullBodyMPPI::publish_CmdVel()
 
 void FullBodyMPPI::publish_CmdPos()
 {
-    double R = fabs(optimal_solution_.v_[0] / optimal_solution_.w_[0]);
-    double steer_in = std::atan2(R*sin(optimal_solution_.direction_[0]), R*cos(optimal_solution_.direction_[0]) - tread_/2.0);
-    double steer_out = std::atan2(R*sin(optimal_solution_.direction_[0]), R*cos(optimal_solution_.direction_[0]) + tread_/2.0);
-    direction_input = optimal_solution_.direction_[0];
-
-    if(optimal_solution_.w_[0] > 0.0){
-        cmd_pos_.steer_l = steer_in;
-        cmd_pos_.steer_r = steer_out;
+    if(steer_off_){
+        cmd_pos_.steer_l = 0.0;
+        cmd_pos_.steer_r = 0.0;
     }
     else{
-        cmd_pos_.steer_l = steer_out;
-        cmd_pos_.steer_r = steer_in;
+        double R = fabs(optimal_solution_.v_[0] / optimal_solution_.w_[0]);
+        double steer_in = std::atan2(R*sin(optimal_solution_.direction_[0]), R*cos(optimal_solution_.direction_[0]) - tread_/2.0);
+        double steer_out = std::atan2(R*sin(optimal_solution_.direction_[0]), R*cos(optimal_solution_.direction_[0]) + tread_/2.0);
+        if(optimal_solution_.w_[0] > 0.0){
+            cmd_pos_.steer_l = steer_in;
+            cmd_pos_.steer_r = steer_out;
+        }
+        else{
+            cmd_pos_.steer_l = steer_out;
+            cmd_pos_.steer_r = steer_in;
+        }
     }
 
     cmd_pos_.roll = current_state_.roll_[0] + optimal_solution_.roll_v_[0] * dt_;
     if (cmd_pos_.roll > roll_max_) cmd_pos_.roll = roll_max_;
     else if (cmd_pos_.roll < roll_min_) cmd_pos_.roll = roll_min_;
-    if(off_) cmd_pos_.roll = 0.0;
+    if(roll_off_) cmd_pos_.roll = 0.0;
+    // cmd_pos_.fore = current_state_.pitch_[0] - optimal_solution_.pitch_v_[0]*dt_;
+    // cmd_pos_.rear = current_state_.pitch_[0] + optimal_solution_.pitch_v_[0]*dt_;
     cmd_pos_.fore = pitch_offset_;
     cmd_pos_.rear = pitch_offset_;
     pub_cmd_pos_.publish(cmd_pos_);
@@ -275,8 +296,8 @@ void FullBodyMPPI::publish_CandidatePath()
         for (int t = 0; t < horizon_; t++)
         {
             geometry_msgs::Point p;
-            // p.x = sample[i].x_[t];
-            // p.y = sample[i].y_[t];
+            p.x = sample[i].x_[t];
+            p.y = sample[i].y_[t];
             p.z = 0.0;
             candidate_path_marker_.markers[i].points[t] = p;
         }
@@ -384,14 +405,19 @@ double FullBodyMPPI::calc_Cost(RobotStates sample)
 {
     double cost = 0.0;
     
-
+    cost += yaw_weight_ * (sample.yaw_[0] - yaw_ref_[0])*(sample.yaw_[0] - yaw_ref_[0]);
     for(int t=0; t < horizon_-2; t++)
     {
-        cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
-        cost += v_weight_ * std::abs(v_ref_ - sample.v_[t]);
-
-        cost += zmp_weight_ * abs(sample.zmp_y_[t]);
-        cost += roll_v_weight_*abs(sample.roll_v_[t+1] - sample.roll_v_[t]);
+        cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_)*calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
+        // cost += path_weight_ * calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
+        cost += v_weight_ * (sample.v_[t] - v_ref_)*(sample.v_[t] - v_ref_);
+        // cost += v_weight_ * abs(v_ref_ - sample.v_[t]);
+        // cost += zmp_weight_ * abs(sample.zmp_y_[t]);
+        cost += zmp_weight_ * sample.zmp_y_[t]*sample.zmp_y_[t];
+        // cost += zmp_weight_ * abs(sample.zmp_x_[t]);
+        cost += roll_v_weight_*(sample.roll_v_[t+1] - sample.roll_v_[t])*(sample.roll_v_[t+1] - sample.roll_v_[t]);
+        // cost += roll_v_weight_*abs(sample.pitch_v_[t+1] - sample.pitch_v_[t]);
+        if(sample.v_[t] < 0.0) cost += back_weight_*sample.v_[t]*sample.v_[t];
     
     }
     return cost;
@@ -413,7 +439,7 @@ void FullBodyMPPI::calc_Weights()
     }
     // std::cout << "ave cost: " << sum_cost / num_samples_ / (horizon_-1) << std::endl;
     for(int i=0; i<num_samples_; i++) weights_[i] /= sum;
-    std::cout << "min zmp_y: " << min_zmp_y*100 << std::endl;
+    // std::cout << "min zmp_y: " << min_zmp_y*100 << std::endl;
 }
 
 void FullBodyMPPI::predict_NextState(RobotStates &sample, int t)
@@ -487,6 +513,8 @@ void FullBodyMPPI::sampling()
             clamp(sample[i].direction_[t], steer_min_, steer_max_);
             clamp(sample[i].roll_v_[t], roll_v_min_, roll_v_max_);
             clamp(sample[i].pitch_v_[t], pitch_v_min_, pitch_v_max_);
+
+            if(steer_off_) sample[i].direction_[t] = 0.0;
         }
     }
 }
@@ -500,17 +528,24 @@ void FullBodyMPPI::clamp(double &val, double min, double max)
 void FullBodyMPPI::get_CurrentState()
 {
     // Get current x, y, yaw
-    try
-    {
-        listener_.lookupTransform(WORLD_FRAME, ROBOT_FRAME, ros::Time(0), transform_);
-        tf::transformStampedTFToMsg(transform_, transform_msg_);
-        current_state_.x_[0] = transform_msg_.transform.translation.x;
-        current_state_.y_[0] = transform_msg_.transform.translation.y;
-        current_state_.yaw_[0] = tf::getYaw(transform_msg_.transform.rotation);
+    if(!use_gazebo_pose_){
+        try
+        {
+            listener_.lookupTransform(WORLD_FRAME, ROBOT_FRAME, ros::Time(0), transform_);
+            tf::transformStampedTFToMsg(transform_, transform_msg_);
+            current_state_.x_[0] = transform_msg_.transform.translation.x;
+            current_state_.y_[0] = transform_msg_.transform.translation.y;
+            current_state_.yaw_[0] = tf::getYaw(transform_msg_.transform.rotation);
+        }
+        catch (tf::TransformException &ex)
+        {
+            ROS_ERROR("%s", ex.what());
+        }
     }
-    catch (tf::TransformException &ex)
-    {
-        ROS_ERROR("%s", ex.what());
+    else{
+        current_state_.x_[0] = gazebo_pose_.pose.position.x;
+        current_state_.y_[0] = gazebo_pose_.pose.position.y;
+        current_state_.yaw_[0] = tf::getYaw(gazebo_pose_.pose.orientation);
     }
     // Get current roll and pitch
     current_state_.roll_[0] = imu_roll_;
@@ -535,7 +570,7 @@ void FullBodyMPPI::calc_true_ZMP()
 {
     std::vector<Eigen::Vector3d> contactForces;
 
-    std::cout << "====================" << std::endl;
+    // std::cout << "====================" << std::endl;
     for(const auto& topic : force_sensor_topic_){
         contactForces.push_back(Eigen::Vector3d(force_sensor_data_[topic].wrench.force.x, force_sensor_data_[topic].wrench.force.y, force_sensor_data_[topic].wrench.force.z));
     }
@@ -589,8 +624,8 @@ void FullBodyMPPI::run()
                 // 0. Get Current State
                 get_CurrentState();
                 std::cout << std::fixed << std::setprecision(2);
-                std::cout << "zmp_x: " << current_state_.zmp_x_[0]*100 << " zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
-                std::cout << "true_zmp_x: " << true_ZMP.x()*100 << " true_zmp_y: " << true_ZMP.y()*100 << std::endl;
+                // std::cout << "zmp_x: " << current_state_.zmp_x_[0]*100 << " zmp_y: " << current_state_.zmp_y_[0]*100 << std::endl;
+                // std::cout << "true_zmp_x: " << true_ZMP.x()*100 << " true_zmp_y: " << true_ZMP.y()*100 << std::endl;
                 // ===================================================================
                 zmp_y_.data = current_state_.zmp_y_[0];
                 pub_zmp_y_.publish(zmp_y_);

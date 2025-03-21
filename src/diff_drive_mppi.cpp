@@ -20,13 +20,14 @@ DiffDriveMPPI::DiffDriveMPPI()
     nh_.param("control_noise", control_noise_, 0.5);
     nh_.param("lambda", lambda_, 1.0);
     nh_.param("v_max", v_max_, 1.2);
-    nh_.param("w_max", w_max_, 1.0);
+    nh_.param("w_max", w_max_, 2.0);
     nh_.param("v_min", v_min_, -1.2);
-    nh_.param("w_min", w_min_, -1.0);
+    // nh_.param("v_min", v_min_, 0.0);
+    nh_.param("w_min", w_min_, -2.0);
     nh_.param("pitch_offset", pitch_offset_, {3.0*M_PI/180.0});
     nh_.param("v_ref", v_ref_, 0.8);
     nh_.param("resolution", resolution_, 0.1);
-    nh_.param("exploration_noise", exploration_noise_, 0.1);
+    nh_.param("exploration_noise", exploration_noise_, 0.5);
     nh_.param("world_frame", WORLD_FRAME, std::string("odom"));
     nh_.param("robot_frame", ROBOT_FRAME, std::string("base_link"));
     nh_.param("path_weight", path_weight_, 1.0);
@@ -62,7 +63,7 @@ void DiffDriveMPPI::clamp(double &val, double min, double max)
 {
     if(val < min) val = min;
     else if(val > max) val = max;
-    
+
 }
 std::string DiffDriveMPPI::check_State(double steer_r, double steer_l)
 {
@@ -72,7 +73,7 @@ std::string DiffDriveMPPI::check_State(double steer_r, double steer_l)
     else if(fabs(steer_r - steer_l) < eps){
         if(fabs(steer_r) < eps && fabs(steer_l) < eps)  state = "no_steer";                             //通常の差動二輪と同じ
         else  state = "parallel";                                                                       //左右のステアが平行の場合
-    }                            
+    }
     else  state = "steer";                                                                              //ステアを切っている場合
     return state;
 }
@@ -84,11 +85,14 @@ void DiffDriveMPPI::sampling()
 
     for(int t=0; t < horizon_-1; t++)
     {
+        // std::normal_distribution<> noise(0.0, control_noise_);
         std::normal_distribution<> norm_v(optimal_solution.v_[t], control_noise_);
         std::normal_distribution<> norm_w(optimal_solution.w_[t], control_noise_);
 
         for(int i=0; i < num_samples_; i++)
         {
+            // sample[i].v_[t] = optimal_solution.v_[t] + noise(mt);
+            // sample[i].w_[t] = optimal_solution.w_[t] + noise(mt);
             sample[i].v_[t] = norm_v(mt);
             sample[i].w_[t] = norm_w(mt);
             clamp(sample[i].v_[t], v_min_, v_max_);
@@ -191,16 +195,15 @@ double DiffDriveMPPI::calc_Cost(RobotStates sample)
 {
     // cubic spline
     double cost = 0.0;
-    
+
     for(int t=0; t < horizon_; t++)
     {
         double distance = calc_MinDistance(sample.x_[t], sample.y_[t], x_ref_, y_ref_);
         // double dx = sample.x_[t] - x_ref_[t];
         // double dy = sample.y_[t] - y_ref_[t];
-        double v_cost = v_ref_ - sample.v_[t];
-        v_cost = std::abs(v_cost);
+        double v_cost = (sample.v_[t] - v_ref_)*(sample.v_[t] - v_ref_);
         // cost += path_weight_* (distance*distance) + v_weight_*(v_cost*v_cost);
-        cost += path_weight_ * distance + v_weight_ * v_cost;
+        cost += path_weight_ * distance *distance + v_weight_ * v_cost;
         // cost += dx*dx + dy*dy;
     }
     return cost;
@@ -270,7 +273,7 @@ void DiffDriveMPPI::publish_CandidatePath()
         candidate_path_marker_.markers[i].id = i;
         candidate_path_marker_.markers[i].type = visualization_msgs::Marker::LINE_STRIP;
         candidate_path_marker_.markers[i].action = visualization_msgs::Marker::ADD;
-        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;         
+        candidate_path_marker_.markers[i].pose.orientation.w = 1.0;
         candidate_path_marker_.markers[i].scale.x = 0.05;
         candidate_path_marker_.markers[i].color.a = 1.0;
         candidate_path_marker_.markers[i].color.r = 0.0;
@@ -304,7 +307,7 @@ void DiffDriveMPPI::publish_OptimalPath()
         optimal_path_.poses[i].pose.position.y = optimal_solution.y_[i];
         optimal_path_.poses[i].pose.orientation = tf::createQuaternionMsgFromYaw(optimal_solution.yaw_[i]);
     }
-    
+
     pub_optimal_path_.publish(optimal_path_);
 }
 
@@ -322,7 +325,7 @@ void DiffDriveMPPI::get_Transform()
     catch (tf::TransformException &ex)
     {
         ROS_ERROR("%s", ex.what());
-    }       
+    }
 }
 
 

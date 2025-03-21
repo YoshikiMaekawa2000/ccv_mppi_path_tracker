@@ -3,7 +3,9 @@ import pandas as pd
 
 
 # file_path = '../log/mppi/v:2.0_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
-file_path = '../log/mppi/v:2.0_A:1.0_f:0.25WOsteer.csv'  # CSVファイルのパスを指定してください
+file_path = '../log/mppi/master_thesis/2.0_diffdrive.csv'
+# file_path = '../log/pure_pursuit/master_thesis/2.0_diff_drive.csv'
+
 # file_path = '../log/mppi/v:1.2_A:1.0_f:0.25.csv'  # CSVファイルのパスを指定してください
 # file_path = '../log/mppi/v:1.2_A:1.0_f:0.25WOsteer.csv'  # CSVファイルのパスを指定してください
 
